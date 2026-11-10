@@ -2,6 +2,7 @@ import time
 import pandas as pd
 from datetime import datetime
 from bitget_client import BitgetClient
+from analise import analisar_completo
 from config import *
 
 def log(msg):
@@ -19,42 +20,12 @@ def obter_candles(limit=100):
     if not data:
         return None
 
-    # Spot candles: [ts, open, high, low, close, volume, quoteVolume]
     df = pd.DataFrame(data, columns=["ts", "open", "high", "low", "close", "volume", "quote_volume"])
     df = df.astype({"open": float, "high": float, "low": float, "close": float, "volume": float})
     df = df.iloc[::-1].reset_index(drop=True)
     return df
 
-def calcular_rsi(series, period=14):
-    delta = series.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(period).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
-
-def analisar():
-    df = obter_candles(MA_PERIOD + RSI_PERIOD + 10)
-    if df is None or len(df) < MA_PERIOD:
-        return None
-
-    df["rsi"] = calcular_rsi(df["close"], RSI_PERIOD)
-    df["ma"] = df["close"].rolling(MA_PERIOD).mean()
-
-    ultimo = df.iloc[-1]
-    rsi = ultimo["rsi"]
-    preco = ultimo["close"]
-    ma = ultimo["ma"]
-
-    log(f"Preço: {preco:.2f} | RSI: {rsi:.1f} | MA: {ma:.2f}")
-
-    if rsi < RSI_OVERSOLD and preco > ma:
-        return "buy"
-    elif rsi > RSI_OVERBOUGHT and preco < ma:
-        return "sell"
-    return None
-
 def tem_posicao_btc():
-    """Verifica se já tem BTC na carteira Spot"""
     resp = client.get_account()
     if resp.get("code") != "00000":
         return False
@@ -91,28 +62,53 @@ def executar_ordem(side):
     log(f"Enviando ordem {side.upper()} | Tamanho: {size} BTC")
     result = client.place_order(SYMBOL, side, size)
     if result.get("code") == "00000":
-        log(f"Ordem executada com sucesso")
+        log("Ordem executada com sucesso")
     else:
         log(f"Erro na ordem: {result}")
 
+def mostrar_analise(resultado):
+    log("=" * 50)
+    log(f"Preço: {resultado['preco']:.2f}")
+    log(f"RSI: {resultado['rsi']} | EMA12: {resultado['ema12']} | EMA26: {resultado['ema26']}")
+    log(f"Score Compra: {resultado['score_compra']} | Score Venda: {resultado['score_venda']}")
+
+    if resultado["motivos_compra"]:
+        log("Motivos Compra:")
+        for m in resultado["motivos_compra"]:
+            log(f"  + {m}")
+    if resultado["motivos_venda"]:
+        log("Motivos Venda:")
+        for m in resultado["motivos_venda"]:
+            log(f"  - {m}")
+
+    if resultado["sinal"]:
+        log(f">>> SINAL: {resultado['sinal'].upper()}")
+    else:
+        log(">>> Sem sinal forte")
+    log("=" * 50)
+
 def loop():
-    log("Bot Bitget iniciado | BTCUSDT Spot")
+    log("Bot Bitget iniciado | BTCUSDT Spot | Análise Completa")
     log(f"Timeframe: {TIMEFRAME}")
+    log("Indicadores: RSI + EMA + MACD + Bollinger + Volume")
     log("Pressione Ctrl+C para parar")
 
     try:
         while True:
-            if tem_posicao_btc():
-                log("Já possui BTC. Aguardando sinal de venda ou novo ciclo...")
-            else:
-                sinal = analisar()
-                if sinal == "buy":
-                    log("Sinal de COMPRA")
-                    executar_ordem("buy")
-                elif sinal == "sell":
-                    log("Sinal de VENDA (sem posição aberta)")
-                else:
-                    log("Sem sinal")
+            df = obter_candles(100)
+            if df is None:
+                time.sleep(INTERVALO_SEGUNDOS)
+                continue
+
+            resultado = analisar_completo(df)
+            mostrar_analise(resultado)
+
+            if resultado["sinal"] == "buy" and not tem_posicao_btc():
+                log("Executando COMPRA")
+                executar_ordem("buy")
+            elif resultado["sinal"] == "sell" and tem_posicao_btc():
+                log("Executando VENDA")
+                executar_ordem("sell")
 
             time.sleep(INTERVALO_SEGUNDOS)
     except KeyboardInterrupt:

@@ -1,35 +1,38 @@
-# Bitget Trading Bot — BTCUSDT Spot
+# Bitget Bot — Análise Completa (BTCUSDT Spot)
 
-Bot focado em **BTCUSDT Spot** na Bitget (a operação mais fácil de analisar).
+Bot com análise multi-indicador para **BTCUSDT Spot** na Bitget.
 
-## Por que Spot?
+## Indicadores usados
 
-- Sem liquidação
-- Sem funding rate
-- Gráfico mais limpo
-- Indicadores funcionam melhor
-- Menor risco para começar
+| Indicador | O que analisa |
+|-----------|---------------|
+| RSI | Sobrecompra / Sobrevenda |
+| EMA 12/26 | Tendência |
+| MACD | Cruzamentos de momentum |
+| Bollinger Bands | Extremos de preço |
+| Volume | Confirmação de movimento |
 
-## Estratégia
+## Sistema de Score
 
-- RSI + Média Móvel
-- Compra quando RSI < 30 e preço acima da média
-- Vende quando RSI > 70 e preço abaixo da média
-- Timeframe recomendado: **15m** ou **1H**
+O bot só opera quando **pelo menos 3 sinais** confirmam a mesma direção.
+
+Exemplo de compra:
+- RSI < 35
+- EMA12 acima da EMA26
+- Cruzamento MACD de alta
 
 ## Como usar
-
-1. Crie uma API Key na Bitget com permissão de **Trade**
-2. Edite `config.py` e coloque suas chaves
-3. Rode:
 
 ```bash
 pip install -r requirements.txt
 python bot.py
 ```
 
-## Parar o bot
-Pressione `Ctrl + C`
+## Estrutura
 
-## Aviso
-Use primeiro com valores pequenos. Trading automatizado envolve risco.
+```
+bot.py          → Loop principal
+analise.py      → Motor de análise completo
+bitget_client.py
+config.py
+```

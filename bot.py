@@ -9,9 +9,7 @@ def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 client = BitgetClient(API_KEY, SECRET_KEY, PASSPHRASE)
-
-# Controle de posição para Stop Loss
-posicao_aberta = None  # {"preco_entrada": float, "tamanho": float}
+posicao_aberta = None
 
 def obter_candles(timeframe, limit=100):
     resp = client.get_candles(SYMBOL, timeframe, limit)
@@ -70,41 +68,41 @@ def verificar_stop_loss(preco_atual):
     variacao = (preco_atual - entrada) / entrada * 100
 
     if variacao <= -STOP_LOSS_PERCENT:
-        log(f"STOP LOSS atingido ({variacao:.2f}%)")
+        log(f"STOP LOSS ({variacao:.2f}%)")
         if executar_ordem("sell", posicao_aberta["tamanho"]):
             posicao_aberta = None
-            log("Posição fechada por Stop Loss")
+            log("Fechado por Stop Loss")
     elif variacao >= TAKE_PROFIT_PERCENT:
-        log(f"TAKE PROFIT atingido ({variacao:.2f}%)")
+        log(f"TAKE PROFIT ({variacao:.2f}%)")
         if executar_ordem("sell", posicao_aberta["tamanho"]):
             posicao_aberta = None
-            log("Posição fechada por Take Profit")
+            log("Fechado por Take Profit")
 
 def mostrar_analise(resultado):
     log("=" * 55)
     log(f"Preço: {resultado['preco']:.2f}")
     log(f"Suporte: {resultado['suporte']} | Resistência: {resultado['resistencia']}")
     log(f"Score Compra: {resultado['score_compra']} | Score Venda: {resultado['score_venda']}")
-    log(f"Timeframes a favor: Compra {resultado['timeframes_compra']} | Venda {resultado['timeframes_venda']}")
+    log(f"Timeframes a favor → Compra: {resultado['timeframes_compra']} | Venda: {resultado['timeframes_venda']}")
 
     for tf, det in resultado["detalhes"].items():
-        log(f"  [{tf}] Compra:{det['score_compra']} Venda:{det['score_venda']} | {', '.join(det['motivos'][:2])}")
+        motivos = ", ".join(det["motivos"][:2]) if det["motivos"] else "-"
+        log(f"  [{tf}] C:{det['score_compra']} V:{det['score_venda']} | {motivos}")
 
     if resultado["sinal"]:
         log(f">>> SINAL: {resultado['sinal'].upper()}")
     else:
-        log(">>> Sem sinal forte (precisa de múltiplos timeframes)")
+        log(">>> Sem sinal forte")
     log("=" * 55)
 
 def loop():
     global posicao_aberta
-    log("Bot Bitget | BTCUSDT Spot | Multi-Timeframe + Stop Loss")
+    log("Bot Bitget | BTCUSDT Spot")
     log(f"Timeframes: {', '.join(TIMEFRAMES)}")
     log(f"Stop Loss: {STOP_LOSS_PERCENT}% | Take Profit: {TAKE_PROFIT_PERCENT}%")
 
     try:
         while True:
-            # Baixa candles de todos os timeframes
             dados = {}
             for tf in TIMEFRAMES:
                 df = obter_candles(tf)
@@ -112,7 +110,7 @@ def loop():
                     dados[tf] = df
 
             if len(dados) < 2:
-                log("Dados insuficientes")
+                log("Aguardando dados...")
                 time.sleep(INTERVALO_SEGUNDOS)
                 continue
 
@@ -123,12 +121,11 @@ def loop():
             if preco_atual and posicao_aberta:
                 verificar_stop_loss(preco_atual)
 
-            # Entrada
             if resultado["sinal"] == "buy" and not tem_posicao_btc() and not posicao_aberta:
                 tamanho = calcular_tamanho()
-                if executar_ordem("buy", tamanho):
+                if executar_ordem("buy", tamanho) and preco_atual:
                     posicao_aberta = {"preco_entrada": preco_atual, "tamanho": tamanho}
-                    log(f"Posição aberta em {preco_atual}")
+                    log(f"Posição aberta @ {preco_atual}")
 
             time.sleep(INTERVALO_SEGUNDOS)
     except KeyboardInterrupt:

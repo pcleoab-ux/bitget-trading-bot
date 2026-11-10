@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 
 def calcular_rsi(series, period=14):
     delta = series.diff()
@@ -24,17 +23,13 @@ def calcular_bollinger(series, period=20, std=2):
     return ma + (desvio * std), ma, ma - (desvio * std)
 
 def calcular_suporte_resistencia(df, janela=20):
-    """Calcula suporte e resistência simples usando mínimos e máximos recentes."""
-    highs = df["high"].rolling(janela).max()
-    lows = df["low"].rolling(janela).min()
-    resistencia = highs.iloc[-1]
-    suporte = lows.iloc[-1]
+    resistencia = df["high"].rolling(janela).max().iloc[-1]
+    suporte = df["low"].rolling(janela).min().iloc[-1]
     return suporte, resistencia
 
 def analisar_timeframe(df):
-    """Analisa um único timeframe e retorna score."""
     if len(df) < 50:
-        return {"score_compra": 0, "score_venda": 0, "motivos": []}
+        return {"score_compra": 0, "score_venda": 0, "motivos": [], "suporte": 0, "resistencia": 0, "preco": 0, "rsi": 0}
 
     df = df.copy()
     df["rsi"] = calcular_rsi(df["close"])
@@ -43,7 +38,7 @@ def analisar_timeframe(df):
     macd, macd_signal = calcular_macd(df["close"])
     df["macd"] = macd
     df["macd_signal"] = macd_signal
-    bb_sup, bb_mid, bb_inf = calcular_bollinger(df["close"])
+    bb_sup, _, bb_inf = calcular_bollinger(df["close"])
     df["bb_sup"] = bb_sup
     df["bb_inf"] = bb_inf
     df["volume_ma"] = df["volume"].rolling(20).mean()
@@ -55,7 +50,6 @@ def analisar_timeframe(df):
     score_venda = 0
     motivos = []
 
-    # RSI
     if ultimo["rsi"] < 35:
         score_compra += 1
         motivos.append("RSI sobrevendido")
@@ -63,51 +57,43 @@ def analisar_timeframe(df):
         score_venda += 1
         motivos.append("RSI sobrecomprado")
 
-    # Tendência
     if ultimo["ema12"] > ultimo["ema26"]:
         score_compra += 1
-        motivos.append("Tendência de alta (EMA)")
+        motivos.append("Tendência de alta")
     else:
         score_venda += 1
-        motivos.append("Tendência de baixa (EMA)")
+        motivos.append("Tendência de baixa")
 
-    # MACD
     if anterior["macd"] < anterior["macd_signal"] and ultimo["macd"] > ultimo["macd_signal"]:
         score_compra += 2
-        motivos.append("Cruzamento MACD alta")
+        motivos.append("MACD cruzou alta")
     elif anterior["macd"] > anterior["macd_signal"] and ultimo["macd"] < ultimo["macd_signal"]:
         score_venda += 2
-        motivos.append("Cruzamento MACD baixa")
+        motivos.append("MACD cruzou baixa")
 
-    # Bollinger
     if ultimo["close"] <= ultimo["bb_inf"]:
         score_compra += 1
-        motivos.append("Toque banda inferior")
+        motivos.append("Banda inferior")
     elif ultimo["close"] >= ultimo["bb_sup"]:
         score_venda += 1
-        motivos.append("Toque banda superior")
+        motivos.append("Banda superior")
 
-    # Volume
     if ultimo["volume"] > ultimo["volume_ma"] * 1.3:
         if ultimo["close"] > anterior["close"]:
             score_compra += 1
-            motivos.append("Volume alto + alta")
+            motivos.append("Volume + alta")
         else:
             score_venda += 1
-            motivos.append("Volume alto + baixa")
+            motivos.append("Volume + baixa")
 
-    # Suporte / Resistência
     suporte, resistencia = calcular_suporte_resistencia(df)
     preco = ultimo["close"]
-    distancia_suporte = (preco - suporte) / preco * 100
-    distancia_resistencia = (resistencia - preco) / preco * 100
-
-    if distancia_suporte < 1.0:
+    if (preco - suporte) / preco * 100 < 1.0:
         score_compra += 1
-        motivos.append(f"Próximo do suporte ({suporte:.0f})")
-    if distancia_resistencia < 1.0:
+        motivos.append(f"Perto do suporte ({suporte:.0f})")
+    if (resistencia - preco) / preco * 100 < 1.0:
         score_venda += 1
-        motivos.append(f"Próximo da resistência ({resistencia:.0f})")
+        motivos.append(f"Perto da resistência ({resistencia:.0f})")
 
     return {
         "score_compra": score_compra,
@@ -120,9 +106,6 @@ def analisar_timeframe(df):
     }
 
 def analisar_multi_timeframe(dados_por_tf):
-    """
-    dados_por_tf: dict { "15m": df, "1H": df, "4H": df }
-    """
     resultados = {}
     score_total_compra = 0
     score_total_venda = 0
@@ -145,7 +128,6 @@ def analisar_multi_timeframe(dados_por_tf):
     elif score_total_venda >= 3 and tfs_venda >= 2:
         sinal = "sell"
 
-    # Pega suporte/resistência do timeframe principal
     principal = resultados.get("15m", {})
 
     return {

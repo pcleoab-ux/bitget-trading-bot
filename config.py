@@ -1,5 +1,5 @@
 # ===================== CONFIGURAÇÃO DO BOT BITGET =====================
-# Foco: BTCUSDT Spot com análise completa
+# BTCUSDT Spot | Análise completa + Multi-timeframe + Stop Loss
 
 # API Keys
 API_KEY = "sua_api_key"
@@ -8,27 +8,21 @@ PASSPHRASE = "seu_passphrase"
 
 # Operação
 SYMBOL = "BTCUSDT"
-TIMEFRAME = "15m"
+TIMEFRAMES = ["15m", "1H", "4H"]     # Análise em múltiplos timeframes
+TIMEFRAME_PRINCIPAL = "15m"
 
 # Risco
 USAR_RISCO_PERCENTUAL = True
 RISCO_PERCENTUAL = 1.0
 LOTE_FIXO = 0.001
 
-# Indicadores
-RSI_PERIOD = 14
-RSI_OVERSOLD = 35
-RSI_OVERBOUGHT = 65
-EMA_FAST = 12
-EMA_SLOW = 26
-EMA_SIGNAL = 9
-BB_PERIOD = 20
-BB_STD = 2.0
-VOLUME_MA = 20
+# Stop Loss e Take Profit (manual, já que é Spot)
+STOP_LOSS_PERCENT = 2.0              # %
+TAKE_PROFIT_PERCENT = 4.0            # %
 
 # Análise
-SCORE_MINIMO_COMPRA = 3          # Quantos sinais precisam confirmar compra
-SCORE_MINIMO_VENDA = 3
+SCORE_MINIMO = 3
+REQUIRE_MULTI_TIMEFRAME = True       # Exige confirmação em pelo menos 2 timeframes
 
 # Controle
 INTERVALO_SEGUNDOS = 20

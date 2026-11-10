@@ -16,32 +16,35 @@ def calcular_macd(series, fast=12, slow=26, signal=9):
     ema_slow = calcular_ema(series, slow)
     macd = ema_fast - ema_slow
     macd_signal = calcular_ema(macd, signal)
-    histograma = macd - macd_signal
-    return macd, macd_signal, histograma
+    return macd, macd_signal
 
 def calcular_bollinger(series, period=20, std=2):
     ma = series.rolling(period).mean()
     desvio = series.rolling(period).std()
-    superior = ma + (desvio * std)
-    inferior = ma - (desvio * std)
-    return superior, ma, inferior
+    return ma + (desvio * std), ma, ma - (desvio * std)
 
-def analisar_completo(df):
-    """Análise multi-indicador. Retorna score e detalhes."""
+def calcular_suporte_resistencia(df, janela=20):
+    """Calcula suporte e resistência simples usando mínimos e máximos recentes."""
+    highs = df["high"].rolling(janela).max()
+    lows = df["low"].rolling(janela).min()
+    resistencia = highs.iloc[-1]
+    suporte = lows.iloc[-1]
+    return suporte, resistencia
+
+def analisar_timeframe(df):
+    """Analisa um único timeframe e retorna score."""
     if len(df) < 50:
-        return {"score": 0, "sinal": None, "detalhes": "Dados insuficientes"}
+        return {"score_compra": 0, "score_venda": 0, "motivos": []}
 
-    # Indicadores
+    df = df.copy()
     df["rsi"] = calcular_rsi(df["close"])
     df["ema12"] = calcular_ema(df["close"], 12)
     df["ema26"] = calcular_ema(df["close"], 26)
-    macd, macd_signal, hist = calcular_macd(df["close"])
+    macd, macd_signal = calcular_macd(df["close"])
     df["macd"] = macd
     df["macd_signal"] = macd_signal
-    df["histograma"] = hist
     bb_sup, bb_mid, bb_inf = calcular_bollinger(df["close"])
     df["bb_sup"] = bb_sup
-    df["bb_mid"] = bb_mid
     df["bb_inf"] = bb_inf
     df["volume_ma"] = df["volume"].rolling(20).mean()
 
@@ -50,72 +53,109 @@ def analisar_completo(df):
 
     score_compra = 0
     score_venda = 0
-    motivos_compra = []
-    motivos_venda = []
+    motivos = []
 
-    # 1. RSI
+    # RSI
     if ultimo["rsi"] < 35:
         score_compra += 1
-        motivos_compra.append(f"RSI sobrevendido ({ultimo['rsi']:.1f})")
+        motivos.append("RSI sobrevendido")
     elif ultimo["rsi"] > 65:
         score_venda += 1
-        motivos_venda.append(f"RSI sobrecomprado ({ultimo['rsi']:.1f})")
+        motivos.append("RSI sobrecomprado")
 
-    # 2. Tendência EMA
+    # Tendência
     if ultimo["ema12"] > ultimo["ema26"]:
         score_compra += 1
-        motivos_compra.append("EMA12 acima da EMA26 (tendência de alta)")
+        motivos.append("Tendência de alta (EMA)")
     else:
         score_venda += 1
-        motivos_venda.append("EMA12 abaixo da EMA26 (tendência de baixa)")
+        motivos.append("Tendência de baixa (EMA)")
 
-    # 3. MACD cruzamento
+    # MACD
     if anterior["macd"] < anterior["macd_signal"] and ultimo["macd"] > ultimo["macd_signal"]:
         score_compra += 2
-        motivos_compra.append("Cruzamento MACD de alta")
+        motivos.append("Cruzamento MACD alta")
     elif anterior["macd"] > anterior["macd_signal"] and ultimo["macd"] < ultimo["macd_signal"]:
         score_venda += 2
-        motivos_venda.append("Cruzamento MACD de baixa")
+        motivos.append("Cruzamento MACD baixa")
 
-    # 4. Bollinger
+    # Bollinger
     if ultimo["close"] <= ultimo["bb_inf"]:
         score_compra += 1
-        motivos_compra.append("Preço tocando banda inferior")
+        motivos.append("Toque banda inferior")
     elif ultimo["close"] >= ultimo["bb_sup"]:
         score_venda += 1
-        motivos_venda.append("Preço tocando banda superior")
+        motivos.append("Toque banda superior")
 
-    # 5. Volume
+    # Volume
     if ultimo["volume"] > ultimo["volume_ma"] * 1.3:
         if ultimo["close"] > anterior["close"]:
             score_compra += 1
-            motivos_compra.append("Volume alto + candle de alta")
+            motivos.append("Volume alto + alta")
         else:
             score_venda += 1
-            motivos_venda.append("Volume alto + candle de baixa")
+            motivos.append("Volume alto + baixa")
 
-    # 6. Posição em relação à média
-    if ultimo["close"] > ultimo["bb_mid"]:
-        score_compra += 0.5
-    else:
-        score_venda += 0.5
+    # Suporte / Resistência
+    suporte, resistencia = calcular_suporte_resistencia(df)
+    preco = ultimo["close"]
+    distancia_suporte = (preco - suporte) / preco * 100
+    distancia_resistencia = (resistencia - preco) / preco * 100
 
-    # Decisão
+    if distancia_suporte < 1.0:
+        score_compra += 1
+        motivos.append(f"Próximo do suporte ({suporte:.0f})")
+    if distancia_resistencia < 1.0:
+        score_venda += 1
+        motivos.append(f"Próximo da resistência ({resistencia:.0f})")
+
+    return {
+        "score_compra": score_compra,
+        "score_venda": score_venda,
+        "motivos": motivos,
+        "suporte": round(suporte, 2),
+        "resistencia": round(resistencia, 2),
+        "preco": preco,
+        "rsi": round(ultimo["rsi"], 1)
+    }
+
+def analisar_multi_timeframe(dados_por_tf):
+    """
+    dados_por_tf: dict { "15m": df, "1H": df, "4H": df }
+    """
+    resultados = {}
+    score_total_compra = 0
+    score_total_venda = 0
+    tfs_compra = 0
+    tfs_venda = 0
+
+    for tf, df in dados_por_tf.items():
+        res = analisar_timeframe(df)
+        resultados[tf] = res
+        score_total_compra += res["score_compra"]
+        score_total_venda += res["score_venda"]
+        if res["score_compra"] > res["score_venda"]:
+            tfs_compra += 1
+        elif res["score_venda"] > res["score_compra"]:
+            tfs_venda += 1
+
     sinal = None
-    if score_compra >= 3 and score_compra > score_venda:
+    if score_total_compra >= 3 and tfs_compra >= 2:
         sinal = "buy"
-    elif score_venda >= 3 and score_venda > score_compra:
+    elif score_total_venda >= 3 and tfs_venda >= 2:
         sinal = "sell"
+
+    # Pega suporte/resistência do timeframe principal
+    principal = resultados.get("15m", {})
 
     return {
         "sinal": sinal,
-        "score_compra": round(score_compra, 1),
-        "score_venda": round(score_venda, 1),
-        "preco": ultimo["close"],
-        "rsi": round(ultimo["rsi"], 1),
-        "motivos_compra": motivos_compra,
-        "motivos_venda": motivos_venda,
-        "ema12": round(ultimo["ema12"], 2),
-        "ema26": round(ultimo["ema26"], 2),
-        "macd": round(ultimo["macd"], 2),
+        "score_compra": score_total_compra,
+        "score_venda": score_total_venda,
+        "timeframes_compra": tfs_compra,
+        "timeframes_venda": tfs_venda,
+        "detalhes": resultados,
+        "suporte": principal.get("suporte"),
+        "resistencia": principal.get("resistencia"),
+        "preco": principal.get("preco")
     }

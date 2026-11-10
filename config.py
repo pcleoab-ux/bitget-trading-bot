@@ -1,10 +1,18 @@
-# ===================== CONFIGURAÇÃO DO BOT BITGET =====================
-# BTCUSDT Spot | Versão com gestão de risco completa
+import os
+from dotenv import load_dotenv
 
-# API Keys
-API_KEY = "sua_api_key"
-SECRET_KEY = "seu_secret_key"
-PASSPHRASE = "seu_passphrase"
+load_dotenv()
+
+# ===================== CONFIGURAÇÃO DO BOT BITGET =====================
+
+# API Keys (lidas do arquivo .env)
+API_KEY = os.getenv("API_KEY", "")
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+PASSPHRASE = os.getenv("PASSPHRASE", "")
+
+# Modo
+MODO_SIMULACAO = True          # True = não envia ordens reais | False = opera de verdade
+CONFIRMAR_PRIMEIRA_ORDEM = True
 
 # Operação
 SYMBOL = "BTCUSDT"
@@ -14,29 +22,20 @@ TIMEFRAMES = ["15m", "1H", "4H"]
 USAR_RISCO_PERCENTUAL = True
 RISCO_PERCENTUAL = 1.0
 LOTE_FIXO = 0.001
+SALDO_MINIMO_USDT = 10.0       # Não opera se tiver menos que isso
 
-# ===== GESTÃO DE RISCO =====
-# Limite de perda diária (em % do saldo)
-LIMITE_PERDA_DIARIA_PERCENT = 3.0          # Para o bot se perder 3% no dia
-
-# Kill switch (drawdown total desde o início)
-KILL_SWITCH_PERCENT = 8.0                  # Para tudo se cair 8% do saldo inicial
-
-# Stop Loss e Take Profit
+# Gestão de risco
+LIMITE_PERDA_DIARIA_PERCENT = 3.0
+KILL_SWITCH_PERCENT = 8.0
 STOP_LOSS_PERCENT = 2.0
 TAKE_PROFIT_PERCENT = 4.0
-USAR_ATR_STOP = True                       # Stop dinâmico baseado em volatilidade
-ATR_MULTIPLICADOR = 1.5
-
-# Trailing Stop
 USAR_TRAILING_STOP = True
-TRAILING_ATIVAR_EM_PERCENT = 1.5           # Começa a seguir depois de 1.5% de lucro
-TRAILING_DISTANCIA_PERCENT = 1.0           # Mantém 1% atrás do máximo
-
-# Cooldown
-COOLDOWN_APOS_PERDA_MINUTOS = 30           # Espera 30 min depois de uma perda
+TRAILING_ATIVAR_EM_PERCENT = 1.5
+TRAILING_DISTANCIA_PERCENT = 1.0
+COOLDOWN_APOS_PERDA_MINUTOS = 30
 
 # Controle
 INTERVALO_SEGUNDOS = 20
 LOG_ARQUIVO = "bot.log"
+RELATORIO_ARQUIVO = "relatorio_diario.txt"
 # =======================================================================

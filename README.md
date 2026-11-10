@@ -1,38 +1,55 @@
-# Bitget Bot — Análise Completa (BTCUSDT Spot)
+# Bitget Trading Bot
 
-Bot com análise multi-indicador para **BTCUSDT Spot** na Bitget.
+Bot completo para BTCUSDT Spot com gestão de risco.
 
-## Indicadores usados
+## Como conectar sua conta
 
-| Indicador | O que analisa |
-|-----------|---------------|
-| RSI | Sobrecompra / Sobrevenda |
-| EMA 12/26 | Tendência |
-| MACD | Cruzamentos de momentum |
-| Bollinger Bands | Extremos de preço |
-| Volume | Confirmação de movimento |
+### 1. Criar API Key na Bitget
+1. Acesse [bitget.com](https://www.bitget.com) e faça login
+2. Vá em **API Management**
+3. Clique em **Create API**
+4. Marque **apenas** a permissão de **Trade** (não marque Withdraw)
+5. Guarde:
+   - API Key
+   - Secret Key
+   - Passphrase
 
-## Sistema de Score
+### 2. Configurar o bot
+```bash
+cp .env.example .env
+```
 
-O bot só opera quando **pelo menos 3 sinais** confirmam a mesma direção.
+Edite o arquivo `.env` e coloque suas chaves:
+```
+API_KEY=sua_chave
+SECRET_KEY=seu_secret
+PASSPHRASE=seu_passphrase
+```
 
-Exemplo de compra:
-- RSI < 35
-- EMA12 acima da EMA26
-- Cruzamento MACD de alta
-
-## Como usar
-
+### 3. Instalar e rodar
 ```bash
 pip install -r requirements.txt
 python bot.py
 ```
 
-## Estrutura
+## Modos
 
-```
-bot.py          → Loop principal
-analise.py      → Motor de análise completo
-bitget_client.py
-config.py
-```
+| Modo | Como ativar |
+|------|-------------|
+| Simulação | `MODO_SIMULACAO = True` no `config.py` |
+| Real | `MODO_SIMULACAO = False` |
+
+## Proteções
+
+- Limite de perda diária: **3%**
+- Kill switch: **8%**
+- Stop Loss: **2%**
+- Take Profit: **4%**
+- Trailing Stop
+- Cooldown de 30 min após perda
+
+## Arquivos gerados
+
+- `bot.log` → Histórico de tudo que o bot fez
+- `relatorio_diario.txt` → Relatório do dia
+- `estado_bot.json` → Estado atual (posição, saldo, etc.)

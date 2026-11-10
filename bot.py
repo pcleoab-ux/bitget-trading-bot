@@ -19,9 +19,10 @@ def obter_candles(limit=100):
     if not data:
         return None
 
+    # Spot candles: [ts, open, high, low, close, volume, quoteVolume]
     df = pd.DataFrame(data, columns=["ts", "open", "high", "low", "close", "volume", "quote_volume"])
     df = df.astype({"open": float, "high": float, "low": float, "close": float, "volume": float})
-    df = df.iloc[::-1].reset_index(drop=True)  # mais antigo primeiro
+    df = df.iloc[::-1].reset_index(drop=True)
     return df
 
 def calcular_rsi(series, period=14):
@@ -44,62 +45,72 @@ def analisar():
     preco = ultimo["close"]
     ma = ultimo["ma"]
 
+    log(f"Preço: {preco:.2f} | RSI: {rsi:.1f} | MA: {ma:.2f}")
+
     if rsi < RSI_OVERSOLD and preco > ma:
         return "buy"
     elif rsi > RSI_OVERBOUGHT and preco < ma:
         return "sell"
     return None
 
-def posicoes_abertas():
-    resp = client.get_positions(PRODUCT_TYPE)
+def tem_posicao_btc():
+    """Verifica se já tem BTC na carteira Spot"""
+    resp = client.get_account()
     if resp.get("code") != "00000":
-        return []
-    positions = resp.get("data", [])
-    return [p for p in positions if p.get("symbol") == SYMBOL and float(p.get("total", 0)) > 0]
+        return False
+    for asset in resp.get("data", []):
+        if asset.get("coin") == "BTC" and float(asset.get("available", 0)) > 0.0001:
+            return True
+    return False
 
 def calcular_tamanho():
     if not USAR_RISCO_PERCENTUAL:
         return LOTE_FIXO
 
-    account = client.get_account(SYMBOL, PRODUCT_TYPE)
+    account = client.get_account()
     if account.get("code") != "00000":
         return LOTE_FIXO
 
-    # simplificado - ajuste conforme resposta real da API
-    balance = float(account.get("data", {}).get("available", 0))
-    if balance <= 0:
+    usdt_balance = 0
+    for asset in account.get("data", []):
+        if asset.get("coin") == "USDT":
+            usdt_balance = float(asset.get("available", 0))
+            break
+
+    if usdt_balance <= 0:
         return LOTE_FIXO
 
-    # cálculo básico de tamanho
     ticker = client.get_ticker(SYMBOL)
     price = float(ticker.get("data", [{}])[0].get("lastPr", 1))
-    risco_valor = balance * (RISCO_PERCENTUAL / 100)
-    tamanho = (risco_valor * LEVERAGE) / price
-    return round(max(0.001, tamanho), 3)
+    risco_valor = usdt_balance * (RISCO_PERCENTUAL / 100)
+    tamanho = risco_valor / price
+    return round(max(0.0001, tamanho), 4)
 
 def executar_ordem(side):
     size = calcular_tamanho()
-    log(f"Enviando ordem {side.upper()} | Tamanho: {size}")
-    result = client.place_order(SYMBOL, side, size, product_type=PRODUCT_TYPE)
+    log(f"Enviando ordem {side.upper()} | Tamanho: {size} BTC")
+    result = client.place_order(SYMBOL, side, size)
     if result.get("code") == "00000":
-        log(f"Ordem executada: {result}")
+        log(f"Ordem executada com sucesso")
     else:
         log(f"Erro na ordem: {result}")
 
 def loop():
-    log("Bot Bitget iniciado")
-    log(f"Símbolo: {SYMBOL} | Timeframe: {TIMEFRAME}")
+    log("Bot Bitget iniciado | BTCUSDT Spot")
+    log(f"Timeframe: {TIMEFRAME}")
     log("Pressione Ctrl+C para parar")
 
     try:
         while True:
-            if len(posicoes_abertas()) >= MAX_POSICOES:
-                log("Posição já aberta. Aguardando...")
+            if tem_posicao_btc():
+                log("Já possui BTC. Aguardando sinal de venda ou novo ciclo...")
             else:
                 sinal = analisar()
-                if sinal:
-                    log(f"Sinal: {sinal.upper()}")
-                    executar_ordem(sinal)
+                if sinal == "buy":
+                    log("Sinal de COMPRA")
+                    executar_ordem("buy")
+                elif sinal == "sell":
+                    log("Sinal de VENDA (sem posição aberta)")
                 else:
                     log("Sem sinal")
 

@@ -1,32 +1,27 @@
-# Bitget Trading Bot
+# Bitget Trading Bot — BTCUSDT Spot
 
-Bot completo de trading autônomo para a **Bitget** usando a API oficial.
+Bot focado em **BTCUSDT Spot** na Bitget (a operação mais fácil de analisar).
+
+## Por que Spot?
+
+- Sem liquidação
+- Sem funding rate
+- Gráfico mais limpo
+- Indicadores funcionam melhor
+- Menor risco para começar
 
 ## Estratégia
 
 - RSI + Média Móvel
 - Compra quando RSI < 30 e preço acima da média
 - Vende quando RSI > 70 e preço abaixo da média
-- Gerenciamento de risco configurável
+- Timeframe recomendado: **15m** ou **1H**
 
 ## Como usar
 
-### 1. Criar API Key na Bitget
-1. Acesse [Bitget](https://www.bitget.com)
-2. Vá em **API Management**
-3. Crie uma chave com permissão de **Trade**
-4. Guarde: API Key, Secret Key e Passphrase
-
-### 2. Configurar
-Edite o arquivo `config.py` e coloque suas chaves:
-
-```python
-API_KEY = "sua_api_key"
-SECRET_KEY = "seu_secret_key"
-PASSPHRASE = "seu_passphrase"
-```
-
-### 3. Instalar e rodar
+1. Crie uma API Key na Bitget com permissão de **Trade**
+2. Edite `config.py` e coloque suas chaves
+3. Rode:
 
 ```bash
 pip install -r requirements.txt
@@ -37,13 +32,4 @@ python bot.py
 Pressione `Ctrl + C`
 
 ## Aviso
-Use primeiro com valores pequenos ou em conta de teste. Trading automatizado envolve risco.
-
-## Estrutura
-
-```
-config.py          → Configurações
-bitget_client.py   → Cliente da API
-bot.py             → Lógica principal
-requirements.txt
-```
+Use primeiro com valores pequenos. Trading automatizado envolve risco.

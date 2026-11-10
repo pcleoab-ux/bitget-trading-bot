@@ -41,49 +41,35 @@ class BitgetClient:
 
         return response.json()
 
-    # ---------- Market ----------
+    # ---------- Market (Spot) ----------
     def get_candles(self, symbol, granularity, limit=100):
-        path = "/api/v2/mix/market/candles"
+        path = "/api/v2/spot/market/candles"
         params = {"symbol": symbol, "granularity": granularity, "limit": limit}
         return self.request("GET", path, params=params)
 
     def get_ticker(self, symbol):
-        path = "/api/v2/mix/market/ticker"
+        path = "/api/v2/spot/market/tickers"
         params = {"symbol": symbol}
         return self.request("GET", path, params=params)
 
-    # ---------- Account ----------
-    def get_account(self, symbol, product_type="USDT-FUTURES"):
-        path = "/api/v2/mix/account/account"
-        params = {"symbol": symbol, "productType": product_type, "marginCoin": "USDT"}
-        return self.request("GET", path, params=params)
+    # ---------- Account (Spot) ----------
+    def get_account(self):
+        path = "/api/v2/spot/account/assets"
+        return self.request("GET", path)
 
-    def get_positions(self, product_type="USDT-FUTURES"):
-        path = "/api/v2/mix/position/all-position"
-        params = {"productType": product_type, "marginCoin": "USDT"}
-        return self.request("GET", path, params=params)
-
-    # ---------- Trade ----------
-    def place_order(self, symbol, side, size, order_type="market", product_type="USDT-FUTURES"):
-        path = "/api/v2/mix/order/place-order"
+    # ---------- Trade (Spot) ----------
+    def place_order(self, symbol, side, size, order_type="market"):
+        path = "/api/v2/spot/trade/place-order"
         body = {
             "symbol": symbol,
-            "productType": product_type,
-            "marginMode": "crossed",
-            "marginCoin": "USDT",
-            "size": str(size),
             "side": side,               # buy ou sell
-            "tradeSide": "open",
             "orderType": order_type,
-            "force": "gtc"
+            "force": "gtc",
+            "size": str(size)
         }
         return self.request("POST", path, body=body)
 
-    def close_position(self, symbol, hold_side, product_type="USDT-FUTURES"):
-        path = "/api/v2/mix/order/close-positions"
-        body = {
-            "symbol": symbol,
-            "productType": product_type,
-            "holdSide": hold_side
-        }
-        return self.request("POST", path, body=body)
+    def get_open_orders(self, symbol):
+        path = "/api/v2/spot/trade/unfilled-orders"
+        params = {"symbol": symbol}
+        return self.request("GET", path, params=params)

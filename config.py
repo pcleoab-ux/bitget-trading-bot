@@ -17,10 +17,10 @@ CONFIRMAR_PRIMEIRA_ORDEM = False
 SYMBOL = "BTCUSDT"
 TIMEFRAMES = ["15min", "1h", "4h"]
 
-# Risco
-USAR_RISCO_PERCENTUAL = True
+# Risco - DESATIVADO temporariamente para atender mínimo da Bitget
+USAR_RISCO_PERCENTUAL = False
 RISCO_PERCENTUAL = 10.0
-LOTE_FIXO = 0.001
+LOTE_FIXO = 0.0001              # Mínimo da Bitget para BTCUSDT (~7.5 USDT)
 SALDO_MINIMO_USDT = 5.0
 ORDEM_MINIMA_USDT = 1.0
 

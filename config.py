@@ -5,14 +5,14 @@ load_dotenv()
 
 # ===================== CONFIGURAÇÃO DO BOT BITGET =====================
 
-# API Keys (lidas do arquivo .env)
 API_KEY = os.getenv("API_KEY", "")
 SECRET_KEY = os.getenv("SECRET_KEY", "")
 PASSPHRASE = os.getenv("PASSPHRASE", "")
 
 # Modo
-MODO_SIMULACAO = True          # True = não envia ordens reais | False = opera de verdade
-CONFIRMAR_PRIMEIRA_ORDEM = True
+MODO_DEMO = True               # True = usa conta Demo da Bitget
+MODO_SIMULACAO = False         # True = não envia ordem | False = envia ordem
+CONFIRMAR_PRIMEIRA_ORDEM = False
 
 # Operação
 SYMBOL = "BTCUSDT"
@@ -22,7 +22,7 @@ TIMEFRAMES = ["15m", "1H", "4H"]
 USAR_RISCO_PERCENTUAL = True
 RISCO_PERCENTUAL = 1.0
 LOTE_FIXO = 0.001
-SALDO_MINIMO_USDT = 10.0       # Não opera se tiver menos que isso
+SALDO_MINIMO_USDT = 10.0
 
 # Gestão de risco
 LIMITE_PERDA_DIARIA_PERCENT = 3.0

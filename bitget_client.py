@@ -6,10 +6,11 @@ import requests
 from hashlib import sha256
 
 class BitgetClient:
-    def __init__(self, api_key, secret_key, passphrase):
+    def __init__(self, api_key, secret_key, passphrase, demo=False):
         self.api_key = api_key
         self.secret_key = secret_key
         self.passphrase = passphrase
+        self.demo = demo
         self.base_url = "https://api.bitget.com"
 
     def _sign(self, timestamp, method, request_path, body=""):
@@ -20,7 +21,7 @@ class BitgetClient:
     def _headers(self, method, request_path, body=""):
         timestamp = str(int(time.time() * 1000))
         sign = self._sign(timestamp, method, request_path, body)
-        return {
+        headers = {
             "ACCESS-KEY": self.api_key,
             "ACCESS-SIGN": sign,
             "ACCESS-TIMESTAMP": timestamp,
@@ -28,6 +29,10 @@ class BitgetClient:
             "Content-Type": "application/json",
             "locale": "en-US"
         }
+        # Header obrigatório para conta Demo
+        if self.demo:
+            headers["paptrading"] = "1"
+        return headers
 
     def request(self, method, path, params=None, body=None):
         url = self.base_url + path
@@ -41,7 +46,6 @@ class BitgetClient:
 
         return response.json()
 
-    # ---------- Market (Spot) ----------
     def get_candles(self, symbol, granularity, limit=100):
         path = "/api/v2/spot/market/candles"
         params = {"symbol": symbol, "granularity": granularity, "limit": limit}
@@ -52,24 +56,17 @@ class BitgetClient:
         params = {"symbol": symbol}
         return self.request("GET", path, params=params)
 
-    # ---------- Account (Spot) ----------
     def get_account(self):
         path = "/api/v2/spot/account/assets"
         return self.request("GET", path)
 
-    # ---------- Trade (Spot) ----------
     def place_order(self, symbol, side, size, order_type="market"):
         path = "/api/v2/spot/trade/place-order"
         body = {
             "symbol": symbol,
-            "side": side,               # buy ou sell
+            "side": side,
             "orderType": order_type,
             "force": "gtc",
             "size": str(size)
         }
         return self.request("POST", path, body=body)
-
-    def get_open_orders(self, symbol):
-        path = "/api/v2/spot/trade/unfilled-orders"
-        params = {"symbol": symbol}
-        return self.request("GET", path, params=params)

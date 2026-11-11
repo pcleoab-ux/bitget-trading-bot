@@ -1,55 +1,47 @@
 # Bitget Trading Bot
 
-Bot completo para BTCUSDT Spot com gestão de risco.
+## Como usar a Conta Demo
 
-## Como conectar sua conta
+### 1. Ative o modo Demo na Bitget
+1. Entre na Bitget
+2. No topo, clique em **Demo Trading** (ou Conta Demo)
+3. A Bitget vai criar uma conta com saldo virtual
 
-### 1. Criar API Key na Bitget
-1. Acesse [bitget.com](https://www.bitget.com) e faça login
-2. Vá em **API Management**
-3. Clique em **Create API**
-4. Marque **apenas** a permissão de **Trade** (não marque Withdraw)
-5. Guarde:
-   - API Key
-   - Secret Key
-   - Passphrase
+### 2. Crie uma API Key de Demo
+1. Ainda no modo Demo, vá em **API Management**
+2. Crie uma nova API Key
+3. Marque permissão de **Trade**
+4. Anote: API Key, Secret Key e Passphrase
 
-### 2. Configurar o bot
+### 3. Configure o `.env`
+```
+API_KEY=sua_chave_demo
+SECRET_KEY=seu_secret_demo
+PASSPHRASE=sua_senha_demo
+```
+
+### 4. Ative o modo Demo no bot
+No arquivo `config.py`:
+```python
+MODO_DEMO = True
+MODO_SIMULACAO = False
+```
+
+### 5. Rode
 ```bash
-cp .env.example .env
-```
-
-Edite o arquivo `.env` e coloque suas chaves:
-```
-API_KEY=sua_chave
-SECRET_KEY=seu_secret
-PASSPHRASE=seu_passphrase
-```
-
-### 3. Instalar e rodar
-```bash
-pip install -r requirements.txt
 python bot.py
 ```
 
+## Importante
+
+- A API Key de **Demo** é diferente da API Key da conta real
+- No modo Demo o bot usa o header `paptrading: 1`
+- O saldo da Demo é virtual
+
 ## Modos
 
-| Modo | Como ativar |
-|------|-------------|
-| Simulação | `MODO_SIMULACAO = True` no `config.py` |
-| Real | `MODO_SIMULACAO = False` |
-
-## Proteções
-
-- Limite de perda diária: **3%**
-- Kill switch: **8%**
-- Stop Loss: **2%**
-- Take Profit: **4%**
-- Trailing Stop
-- Cooldown de 30 min após perda
-
-## Arquivos gerados
-
-- `bot.log` → Histórico de tudo que o bot fez
-- `relatorio_diario.txt` → Relatório do dia
-- `estado_bot.json` → Estado atual (posição, saldo, etc.)
+| Configuração | O que faz |
+|---------------|-----------|
+| `MODO_DEMO = True` | Usa conta Demo da Bitget |
+| `MODO_SIMULACAO = True` | Não envia ordem (só mostra) |
+| Ambos `False` | Opera na conta real |

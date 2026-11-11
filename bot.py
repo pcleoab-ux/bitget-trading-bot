@@ -28,7 +28,8 @@ def obter_candles(client, timeframe, limit=100):
         data = resp.get("data", [])
         if not data:
             return None
-        df = pd.DataFrame(data, columns=["ts", "open", "high", "low", "close", "volume", "quote_volume"])
+        # Bitget retorna 8 colunas
+        df = pd.DataFrame(data, columns=["ts", "open", "high", "low", "close", "volume", "quote_volume", "extra"])
         df = df.astype({"open": float, "high": float, "low": float, "close": float, "volume": float})
         return df.iloc[::-1].reset_index(drop=True)
     except Exception as e:

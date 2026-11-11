@@ -40,8 +40,6 @@ HTML = """
         .btn-red:hover { background: #b62324; }
         .btn-green { background: #238636; border-color: #238636; color: white; }
         .btn-green:hover { background: #2ea043; }
-        .btn-blue { background: #1f6feb; border-color: #1f6feb; color: white; }
-        .btn-blue:hover { background: #388bfd; }
         .signal { font-size: 22px; font-weight: bold; padding: 12px; border-radius: 6px; text-align: center; }
         .signal-buy { background: #238636; color: white; }
         .signal-sell { background: #da3633; color: white; }
@@ -85,18 +83,18 @@ HTML = """
     <div class="card" style="margin-top:15px">
         <h2>Ações</h2>
         <div class="acoes">
-            {% if sinal == 'buy' and saldo_usdt > 2 %}
+            {% if pode_comprar %}
             <button class="btn btn-green" onclick="comprar()">Comprar BTC agora</button>
             {% endif %}
-            {% if saldo_btc > 0.00001 %}
+            {% if pode_vender %}
             <button class="btn btn-red" onclick="venderTudo()">Vender todo BTC</button>
             {% endif %}
             <button class="btn" onclick="location.reload()">Atualizar</button>
         </div>
         <p style="color:#8b949e; font-size:12px; margin-top:10px">
-            {% if sinal == 'buy' %}Sinal de compra ativo. Clique para executar.{% endif %}
+            {% if sinal == 'buy' %}Sinal de compra ativo.{% endif %}
             {% if sinal == 'sell' %}Sinal de venda ativo.{% endif %}
-            {% if not sinal %}Aguardando sinal forte para operar.{% endif %}
+            {% if not sinal %}Aguardando sinal forte.{% endif %}
         </p>
     </div>
 
@@ -139,7 +137,7 @@ HTML = """
             if (confirm('Vender todo o BTC agora?')) fetch('/vender_tudo').then(() => location.reload());
         }
         function comprar() {
-            if (confirm('Comprar BTC agora com ~85% do saldo?')) fetch('/comprar').then(() => location.reload());
+            if (confirm('Comprar BTC agora?')) fetch('/comprar').then(() => location.reload());
         }
     </script>
 </body>
@@ -166,13 +164,13 @@ def ler_log():
             linhas = f.readlines()
         return [l.strip() for l in linhas[-12:]]
     except:
-        return ["Nenhum log ainda. Rode python bot.py para o bot operar."]
+        return ["Nenhum log ainda."]
 
 @app.route("/")
 def index():
-    saldo_usdt = 0
-    saldo_btc = 0
-    preco = 0
+    saldo_usdt = 0.0
+    saldo_btc = 0.0
+    preco = 0.0
     ordens = []
     tendencia = "neutro"
     adx = 0
@@ -229,6 +227,8 @@ def index():
         print(f"Erro: {e}")
 
     valor_total = saldo_usdt + (saldo_btc * preco if preco else 0)
+    pode_comprar = sinal == "buy" and saldo_usdt > 2
+    pode_vender = saldo_btc > 0.00001
 
     return render_template_string(
         HTML,
@@ -248,7 +248,9 @@ def index():
         tfs_v=tfs_v,
         suporte=suporte,
         resistencia=resistencia,
-        log_linhas=ler_log()
+        log_linhas=ler_log(),
+        pode_comprar=pode_comprar,
+        pode_vender=pode_vender
     )
 
 @app.route("/cancelar")

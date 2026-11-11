@@ -38,6 +38,19 @@ def obter_preco(client):
     except:
         return None
 
+def obter_saldo_btc(client):
+    """Retorna o saldo de BTC disponível."""
+    try:
+        resp = client.get_account()
+        if resp.get("code") != "00000":
+            return 0
+        for asset in resp.get("data", []):
+            if asset.get("coin") == "BTC":
+                return float(asset.get("available", 0))
+        return 0
+    except:
+        return 0
+
 def loop():
     log("=" * 50)
     log("BOT BITGET | BTCUSDT SPOT")
@@ -96,9 +109,10 @@ def loop():
 
             resultado = analisar_multi_timeframe(dados)
             preco = obter_preco(client)
+            saldo_btc = obter_saldo_btc(client)
 
             log("-" * 40)
-            log(f"Saldo: {saldo:.2f} USDT | Preço: {resultado.get('preco', 0):.2f}")
+            log(f"Saldo: {saldo:.2f} USDT | BTC: {saldo_btc:.6f} | Preço: {preco:.2f}")
             log(f"Suporte: {resultado.get('suporte')} | Resistência: {resultado.get('resistencia')}")
             log(f"Score Compra: {resultado['score_compra']} | Score Venda: {resultado['score_venda']}")
             log(f"Timeframes → Compra: {resultado['timeframes_compra']} | Venda: {resultado['timeframes_venda']}")
@@ -107,8 +121,43 @@ def loop():
             else:
                 log(">>> Sem sinal forte")
 
-            # Compra - usa 90% do saldo disponível
-            if resultado["sinal"] == "buy" and not estado.get("posicao") and preco:
+            posicao = estado.get("posicao")
+
+            # ---------- VENDA (fechar posição) ----------
+            if posicao and preco and saldo_btc > 0.00001:
+                preco_entrada = posicao.get("preco", preco)
+                variacao = (preco - preco_entrada) / preco_entrada * 100
+
+                vender = False
+                motivo = ""
+
+                if resultado["sinal"] == "sell":
+                    vender = True
+                    motivo = "Sinal de venda"
+                elif variacao >= TAKE_PROFIT_PERCENT:
+                    vender = True
+                    motivo = f"Take Profit ({variacao:.2f}%)"
+                elif variacao <= -STOP_LOSS_PERCENT:
+                    vender = True
+                    motivo = f"Stop Loss ({variacao:.2f}%)"
+
+                if vender:
+                    log(f"Vendendo BTC | Motivo: {motivo}")
+                    if MODO_SIMULACAO:
+                        log(f"[SIMULAÇÃO] VENDA | {saldo_btc:.6f} BTC @ {preco}")
+                        estado["posicao"] = None
+                        salvar_estado(estado)
+                    else:
+                        resp = client.place_order(SYMBOL, "sell", round(saldo_btc, 6))
+                        if resp.get("code") == "00000":
+                            log(f"VENDA REAL EXECUTADA | {saldo_btc:.6f} BTC @ {preco} | {motivo}")
+                            estado["posicao"] = None
+                            salvar_estado(estado)
+                        else:
+                            log(f"ERRO NA VENDA: {resp.get('msg', 'desconhecido')}")
+
+            # ---------- COMPRA (abrir posição) ----------
+            elif resultado["sinal"] == "buy" and not posicao and preco and saldo > 2:
                 valor_usdt = max(2.0, round(saldo * 0.9, 2))
                 if valor_usdt > saldo - 0.5:
                     valor_usdt = round(saldo - 0.5, 2)

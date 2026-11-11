@@ -11,18 +11,18 @@ PASSPHRASE = os.getenv("PASSPHRASE", "")
 
 # Modo
 MODO_SIMULACAO = False
-CONFIRMAR_PRIMEIRA_ORDEM = True
+CONFIRMAR_PRIMEIRA_ORDEM = False
 
 # Operação
 SYMBOL = "BTCUSDT"
-# Formato correto da Bitget Spot
 TIMEFRAMES = ["15min", "1h", "4h"]
 
 # Risco
 USAR_RISCO_PERCENTUAL = True
-RISCO_PERCENTUAL = 1.0
+RISCO_PERCENTUAL = 10.0          # Aumentado para garantir ordem mínima
 LOTE_FIXO = 0.001
-SALDO_MINIMO_USDT = 10.0
+SALDO_MINIMO_USDT = 5.0          # Reduzido
+ORDEM_MINIMA_USDT = 1.0          # Mínimo da Bitget
 
 # Gestão de risco
 LIMITE_PERDA_DIARIA_PERCENT = 3.0

@@ -38,6 +38,13 @@ def obter_preco(client):
     except:
         return None
 
+def calcular_tamanho(saldo, preco):
+    if not USAR_RISCO_PERCENTUAL:
+        return LOTE_FIXO
+    valor_ordem = max(ORDEM_MINIMA_USDT, saldo * RISCO_PERCENTUAL / 100)
+    tamanho = valor_ordem / preco
+    return round(tamanho, 6)
+
 def loop():
     log("=" * 50)
     log("BOT BITGET | BTCUSDT SPOT")
@@ -106,10 +113,10 @@ def loop():
             else:
                 log(">>> Sem sinal forte")
 
-            # Executa compra
             if resultado["sinal"] == "buy" and not estado.get("posicao") and preco:
-                tamanho = round(max(0.0001, (saldo * RISCO_PERCENTUAL / 100) / preco), 6)
-                log(f"Tentando comprar {tamanho} BTC @ {preco}")
+                tamanho = calcular_tamanho(saldo, preco)
+                valor = tamanho * preco
+                log(f"Tentando comprar {tamanho} BTC (~{valor:.2f} USDT)")
 
                 if MODO_SIMULACAO:
                     log(f"[SIMULAÇÃO] COMPRA | {tamanho} BTC @ {preco}")
@@ -117,7 +124,6 @@ def loop():
                     salvar_estado(estado)
                 else:
                     resp = client.place_order(SYMBOL, "buy", tamanho)
-                    log(f"Resposta da API: {resp}")
                     if resp.get("code") == "00000":
                         estado["posicao"] = {"preco": preco, "tamanho": tamanho}
                         salvar_estado(estado)

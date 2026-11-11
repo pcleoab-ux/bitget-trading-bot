@@ -38,13 +38,6 @@ def obter_preco(client):
     except:
         return None
 
-def calcular_tamanho(saldo, preco):
-    if not USAR_RISCO_PERCENTUAL:
-        return LOTE_FIXO
-    valor_ordem = max(ORDEM_MINIMA_USDT, saldo * RISCO_PERCENTUAL / 100)
-    tamanho = valor_ordem / preco
-    return round(tamanho, 6)
-
 def loop():
     log("=" * 50)
     log("BOT BITGET | BTCUSDT SPOT")
@@ -113,21 +106,22 @@ def loop():
             else:
                 log(">>> Sem sinal forte")
 
+            # Compra - size em USDT para market buy
             if resultado["sinal"] == "buy" and not estado.get("posicao") and preco:
-                tamanho = calcular_tamanho(saldo, preco)
-                valor = tamanho * preco
-                log(f"Tentando comprar {tamanho} BTC (~{valor:.2f} USDT)")
+                # Usa valor fixo em USDT (mínimo da Bitget é ~1 USDT, mas usamos 8 para margem)
+                valor_usdt = 8.0
+                log(f"Tentando comprar ~{valor_usdt} USDT de BTC")
 
                 if MODO_SIMULACAO:
-                    log(f"[SIMULAÇÃO] COMPRA | {tamanho} BTC @ {preco}")
-                    estado["posicao"] = {"preco": preco, "tamanho": tamanho}
+                    log(f"[SIMULAÇÃO] COMPRA | {valor_usdt} USDT")
+                    estado["posicao"] = {"preco": preco, "tamanho_usdt": valor_usdt}
                     salvar_estado(estado)
                 else:
-                    resp = client.place_order(SYMBOL, "buy", tamanho)
+                    resp = client.place_order(SYMBOL, "buy", valor_usdt)
                     if resp.get("code") == "00000":
-                        estado["posicao"] = {"preco": preco, "tamanho": tamanho}
+                        estado["posicao"] = {"preco": preco, "tamanho_usdt": valor_usdt}
                         salvar_estado(estado)
-                        log(f"COMPRA REAL EXECUTADA @ {preco}")
+                        log(f"COMPRA REAL EXECUTADA | {valor_usdt} USDT")
                     else:
                         log(f"ERRO NA ORDEM: {resp.get('msg', 'desconhecido')}")
 

@@ -6,11 +6,10 @@ import requests
 from hashlib import sha256
 
 class BitgetClient:
-    def __init__(self, api_key, secret_key, passphrase, demo=False):
+    def __init__(self, api_key, secret_key, passphrase):
         self.api_key = api_key
         self.secret_key = secret_key
         self.passphrase = passphrase
-        self.demo = demo
         self.base_url = "https://api.bitget.com"
 
     def _sign(self, timestamp, method, request_path, body=""):
@@ -21,7 +20,7 @@ class BitgetClient:
     def _headers(self, method, request_path, body=""):
         timestamp = str(int(time.time() * 1000))
         sign = self._sign(timestamp, method, request_path, body)
-        headers = {
+        return {
             "ACCESS-KEY": self.api_key,
             "ACCESS-SIGN": sign,
             "ACCESS-TIMESTAMP": timestamp,
@@ -29,10 +28,6 @@ class BitgetClient:
             "Content-Type": "application/json",
             "locale": "en-US"
         }
-        # Header obrigatório para conta Demo
-        if self.demo:
-            headers["paptrading"] = "1"
-        return headers
 
     def request(self, method, path, params=None, body=None):
         url = self.base_url + path
@@ -61,6 +56,10 @@ class BitgetClient:
         return self.request("GET", path)
 
     def place_order(self, symbol, side, size, order_type="market"):
+        """
+        Para market BUY: size deve ser em USDT (quote)
+        Para market SELL: size deve ser em BTC (base)
+        """
         path = "/api/v2/spot/trade/place-order"
         body = {
             "symbol": symbol,

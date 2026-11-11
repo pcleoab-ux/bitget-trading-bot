@@ -50,11 +50,9 @@ def loop():
     log(f"Modo: {'SIMULAÇÃO' if MODO_SIMULACAO else 'REAL'}")
     log("=" * 50)
 
-    # Testa conexão
     ok, msg = testar_conexao()
     if not ok:
         log(f"ERRO DE CONEXÃO: {msg}")
-        log("Verifique o arquivo .env e as permissões da API Key")
         return
     log(msg)
 
@@ -65,10 +63,12 @@ def loop():
         log(f"Saldo abaixo do mínimo ({SALDO_MINIMO_USDT} USDT). Bot não iniciará.")
         return
 
-    client = BitgetClient(API_KEY, SECRET_KEY, PASSPHRASE)
+    client = BitgetClient(API_KEY, SECRET_KEY, PASSPHRASE, demo=False)
     estado = carregar_estado()
     estado = iniciar_dia(estado, saldo)
     primeira_ordem = True
+
+    log("Iniciando análise... (Ctrl+C para parar)")
 
     try:
         while True:
@@ -86,6 +86,7 @@ def loop():
                 continue
 
             if em_cooldown(estado, COOLDOWN_APOS_PERDA_MINUTOS):
+                log("Em cooldown...")
                 time.sleep(INTERVALO_SEGUNDOS)
                 continue
 
@@ -96,17 +97,29 @@ def loop():
                     dados[tf] = df
 
             if len(dados) < 2:
+                log("Aguardando dados suficientes...")
                 time.sleep(INTERVALO_SEGUNDOS)
                 continue
 
             resultado = analisar_multi_timeframe(dados)
             preco = obter_preco(client)
 
+            # Mostra análise
+            log("-" * 40)
+            log(f"Preço: {resultado.get('preco', 0):.2f} | Suporte: {resultado.get('suporte')} | Resistência: {resultado.get('resistencia')}")
+            log(f"Score Compra: {resultado['score_compra']} | Score Venda: {resultado['score_venda']}")
+            log(f"Timeframes → Compra: {resultado['timeframes_compra']} | Venda: {resultado['timeframes_venda']}")
+            if resultado["sinal"]:
+                log(f">>> SINAL: {resultado['sinal'].upper()}")
+            else:
+                log(">>> Sem sinal forte")
+
             if resultado["sinal"] == "buy" and not estado.get("posicao") and preco:
                 if primeira_ordem and CONFIRMAR_PRIMEIRA_ORDEM and not MODO_SIMULACAO:
                     if not confirmar_ordem():
-                        log("Primeira ordem cancelada pelo usuário")
+                        log("Primeira ordem cancelada")
                         primeira_ordem = False
+                        time.sleep(INTERVALO_SEGUNDOS)
                         continue
                     primeira_ordem = False
 
@@ -120,7 +133,7 @@ def loop():
                     if client.place_order(SYMBOL, "buy", tamanho).get("code") == "00000":
                         estado["posicao"] = {"preco": preco, "tamanho": tamanho}
                         salvar_estado(estado)
-                        log(f"COMPRA REAL executada @ {preco}")
+                        log(f"COMPRA REAL @ {preco}")
 
             time.sleep(INTERVALO_SEGUNDOS)
     except KeyboardInterrupt:

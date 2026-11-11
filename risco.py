@@ -13,10 +13,17 @@ def carregar_estado():
             "perdas_hoje": 0.0,
             "ultimo_loss": None,
             "posicao": None,
-            "preco_maximo": None
+            "preco_maximo": None,
+            "trades": [],
+            "score_ajuste": 0
         }
     with open(ARQUIVO_ESTADO, "r") as f:
-        return json.load(f)
+        estado = json.load(f)
+        if "trades" not in estado:
+            estado["trades"] = []
+        if "score_ajuste" not in estado:
+            estado["score_ajuste"] = 0
+        return estado
 
 def salvar_estado(estado):
     with open(ARQUIVO_ESTADO, "w") as f:
@@ -55,3 +62,45 @@ def em_cooldown(estado, minutos):
 def registrar_perda(estado):
     estado["ultimo_loss"] = datetime.now().isoformat()
     salvar_estado(estado)
+
+def registrar_trade(estado, lucro_percent):
+    """Registra o resultado de um trade e ajusta o score."""
+    estado["trades"].append({
+        "data": datetime.now().isoformat(),
+        "lucro": round(lucro_percent, 2)
+    })
+    # Mantém só os últimos 20 trades
+    estado["trades"] = estado["trades"][-20:]
+
+    # Ajuste adaptativo
+    recentes = estado["trades"][-5:]
+    perdas_recentes = len([t for t in recentes if t["lucro"] < 0])
+    ganhos_recentes = len([t for t in recentes if t["lucro"] > 0])
+
+    if perdas_recentes >= 3:
+        estado["score_ajuste"] = min(estado.get("score_ajuste", 0) + 1, 3)
+    elif ganhos_recentes >= 3:
+        estado["score_ajuste"] = max(estado.get("score_ajuste", 0) - 1, 0)
+
+    salvar_estado(estado)
+
+def get_score_minimo_ajustado(score_base, estado):
+    """Retorna o score mínimo ajustado pelo desempenho."""
+    return score_base + estado.get("score_ajuste", 0)
+
+def get_estatisticas(estado):
+    """Retorna estatísticas dos trades."""
+    trades = estado.get("trades", [])
+    if not trades:
+        return {"total": 0, "ganhos": 0, "perdas": 0, "taxa": 0, "media": 0}
+    ganhos = len([t for t in trades if t["lucro"] > 0])
+    perdas = len([t for t in trades if t["lucro"] <= 0])
+    media = sum(t["lucro"] for t in trades) / len(trades)
+    taxa = (ganhos / len(trades)) * 100 if trades else 0
+    return {
+        "total": len(trades),
+        "ganhos": ganhos,
+        "perdas": perdas,
+        "taxa": round(taxa, 1),
+        "media": round(media, 2)
+    }

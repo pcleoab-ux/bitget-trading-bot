@@ -74,7 +74,6 @@ def loop():
     estado = iniciar_dia(estado, saldo)
 
     log("Iniciando análise... (Ctrl+C para parar)")
-    log("Regras: Tendência maior + Score dinâmico + ADX >= 20")
 
     try:
         while True:
@@ -115,18 +114,29 @@ def loop():
             preco = obter_preco(client)
             saldo_btc = obter_saldo_btc(client)
 
-            # Detecta posição pelo saldo real de BTC
+            # Score ajustado pelo desempenho
+            score_min_ajustado = get_score_minimo_ajustado(resultado.get("score_minimo", 5), estado)
+            stats = get_estatisticas(estado)
+
             tem_posicao = saldo_btc > 0.00001
             posicao = estado.get("posicao")
 
             log("-" * 40)
             log(f"Saldo: {saldo:.2f} USDT | BTC: {saldo_btc:.6f} | Preço: {preco:.2f}")
-            log(f"Tendência: {tendencia.upper()} | ADX: {resultado.get('adx', 0)} | ATR: {resultado.get('atr_pct', 0)}%")
-            log(f"Score C: {resultado['score_compra']} | Score V: {resultado['score_venda']} | Mín: {resultado.get('score_minimo', 5)}")
-            log(f"TFs → C: {resultado['timeframes_compra']} | V: {resultado['timeframes_venda']}")
+            log(f"Tendência: {tendencia.upper()} | ADX: {resultado.get('adx', 0)}")
+            log(f"Score C: {resultado['score_compra']} | V: {resultado['score_venda']} | Mín: {score_min_ajustado}")
+            if stats["total"] > 0:
+                log(f"Trades: {stats['total']} | Taxa: {stats['taxa']}% | Média: {stats['media']}%")
 
-            if resultado["sinal"]:
-                log(f">>> SINAL: {resultado['sinal'].upper()}")
+            # Verifica sinal com score ajustado
+            sinal = None
+            if resultado["score_compra"] >= score_min_ajustado and resultado["timeframes_compra"] >= 2:
+                sinal = "buy"
+            elif resultado["score_venda"] >= score_min_ajustado and resultado["timeframes_venda"] >= 2:
+                sinal = "sell"
+
+            if sinal:
+                log(f">>> SINAL: {sinal.upper()}")
             else:
                 log(">>> Sem sinal")
 
@@ -148,7 +158,7 @@ def loop():
                 vender = False
                 motivo = ""
 
-                if resultado["sinal"] == "sell":
+                if sinal == "sell":
                     vender = True
                     motivo = "Sinal de venda"
                 elif variacao >= TAKE_PROFIT_PERCENT:
@@ -160,29 +170,31 @@ def loop():
                     registrar_perda(estado)
                 elif USAR_TRAILING_STOP and variacao >= TRAILING_ATIVAR_EM_PERCENT and variacao_do_maximo >= TRAILING_DISTANCIA_PERCENT:
                     vender = True
-                    motivo = f"Trailing Stop ({variacao_do_maximo:.2f}% do máximo)"
+                    motivo = f"Trailing Stop ({variacao_do_maximo:.2f}%)"
 
                 if vender:
-                    tamanho_venda = round(saldo_btc * 0.998, 6)  # margem de segurança
+                    tamanho_venda = round(saldo_btc * 0.998, 6)
                     log(f"Vendendo {tamanho_venda:.6f} BTC | {motivo}")
                     if MODO_SIMULACAO:
-                        log(f"[SIMULAÇÃO] VENDA @ {preco} | Resultado: {variacao:.2f}%")
+                        log(f"[SIMULAÇÃO] VENDA @ {preco} | {variacao:.2f}%")
+                        registrar_trade(estado, variacao)
                         estado["posicao"] = None
                         salvar_estado(estado)
                     else:
                         resp = client.place_order(SYMBOL, "sell", tamanho_venda)
                         if resp.get("code") == "00000":
                             log(f"VENDA OK @ {preco} | {motivo} | {variacao:.2f}%")
+                            registrar_trade(estado, variacao)
                             estado["posicao"] = None
                             salvar_estado(estado)
                         else:
                             log(f"ERRO VENDA: {resp.get('msg', 'desconhecido')}")
 
             # ---------- COMPRA ----------
-            elif resultado["sinal"] == "buy" and not tem_posicao and preco and saldo > 2.5:
+            elif sinal == "buy" and not tem_posicao and preco and saldo > 2.5:
                 valor_usdt = round(min(saldo * 0.85, saldo - 0.5), 2)
                 if valor_usdt < 1.5:
-                    log("Saldo insuficiente para ordem mínima")
+                    log("Saldo insuficiente")
                 else:
                     log(f"Comprando ~{valor_usdt} USDT de BTC")
                     if MODO_SIMULACAO:

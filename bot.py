@@ -74,6 +74,7 @@ def loop():
     estado = iniciar_dia(estado, saldo)
 
     log("Iniciando análise... (Ctrl+C para parar)")
+    log("Regras: Tendência maior + Score dinâmico + ADX >= 20")
 
     try:
         while True:
@@ -95,7 +96,6 @@ def loop():
                 time.sleep(INTERVALO_SEGUNDOS)
                 continue
 
-            # Busca dados dos timeframes operacionais + 4H e 1D para tendência
             dados = {}
             for tf in TIMEFRAMES:
                 df = obter_candles(client, tf)
@@ -115,28 +115,32 @@ def loop():
             preco = obter_preco(client)
             saldo_btc = obter_saldo_btc(client)
 
+            # Detecta posição pelo saldo real de BTC
+            tem_posicao = saldo_btc > 0.00001
+            posicao = estado.get("posicao")
+
             log("-" * 40)
             log(f"Saldo: {saldo:.2f} USDT | BTC: {saldo_btc:.6f} | Preço: {preco:.2f}")
-            log(f"Tendência maior: {tendencia.upper()} | ADX: {resultado.get('adx', 0)} | ATR: {resultado.get('atr_pct', 0)}%")
-            log(f"Score Compra: {resultado['score_compra']} | Score Venda: {resultado['score_venda']} | Mínimo: {resultado.get('score_minimo', 5)}")
-            log(f"Timeframes → Compra: {resultado['timeframes_compra']} | Venda: {resultado['timeframes_venda']}")
+            log(f"Tendência: {tendencia.upper()} | ADX: {resultado.get('adx', 0)} | ATR: {resultado.get('atr_pct', 0)}%")
+            log(f"Score C: {resultado['score_compra']} | Score V: {resultado['score_venda']} | Mín: {resultado.get('score_minimo', 5)}")
+            log(f"TFs → C: {resultado['timeframes_compra']} | V: {resultado['timeframes_venda']}")
+
             if resultado["sinal"]:
                 log(f">>> SINAL: {resultado['sinal'].upper()}")
             else:
-                log(">>> Sem sinal forte")
-
-            posicao = estado.get("posicao")
+                log(">>> Sem sinal")
 
             # ---------- VENDA ----------
-            if posicao and preco and saldo_btc > 0.00001:
-                preco_entrada = posicao.get("preco", preco)
-                preco_maximo = posicao.get("preco_maximo", preco_entrada)
+            if tem_posicao and preco:
+                preco_entrada = posicao.get("preco", preco) if posicao else preco
+                preco_maximo = posicao.get("preco_maximo", preco_entrada) if posicao else preco
 
                 if preco > preco_maximo:
                     preco_maximo = preco
-                    posicao["preco_maximo"] = preco_maximo
-                    estado["posicao"] = posicao
-                    salvar_estado(estado)
+                    if posicao:
+                        posicao["preco_maximo"] = preco_maximo
+                        estado["posicao"] = posicao
+                        salvar_estado(estado)
 
                 variacao = (preco - preco_entrada) / preco_entrada * 100
                 variacao_do_maximo = (preco_maximo - preco) / preco_maximo * 100 if preco_maximo else 0
@@ -156,44 +160,43 @@ def loop():
                     registrar_perda(estado)
                 elif USAR_TRAILING_STOP and variacao >= TRAILING_ATIVAR_EM_PERCENT and variacao_do_maximo >= TRAILING_DISTANCIA_PERCENT:
                     vender = True
-                    motivo = f"Trailing Stop (caiu {variacao_do_maximo:.2f}% do máximo)"
+                    motivo = f"Trailing Stop ({variacao_do_maximo:.2f}% do máximo)"
 
                 if vender:
-                    log(f"Vendendo BTC | Motivo: {motivo}")
+                    tamanho_venda = round(saldo_btc * 0.998, 6)  # margem de segurança
+                    log(f"Vendendo {tamanho_venda:.6f} BTC | {motivo}")
                     if MODO_SIMULACAO:
-                        lucro = (preco - preco_entrada) / preco_entrada * 100
-                        log(f"[SIMULAÇÃO] VENDA | {saldo_btc:.6f} BTC @ {preco} | Resultado: {lucro:.2f}%")
+                        log(f"[SIMULAÇÃO] VENDA @ {preco} | Resultado: {variacao:.2f}%")
                         estado["posicao"] = None
                         salvar_estado(estado)
                     else:
-                        resp = client.place_order(SYMBOL, "sell", round(saldo_btc, 6))
+                        resp = client.place_order(SYMBOL, "sell", tamanho_venda)
                         if resp.get("code") == "00000":
-                            lucro = (preco - preco_entrada) / preco_entrada * 100
-                            log(f"VENDA REAL | {saldo_btc:.6f} BTC @ {preco} | {motivo} | Resultado: {lucro:.2f}%")
+                            log(f"VENDA OK @ {preco} | {motivo} | {variacao:.2f}%")
                             estado["posicao"] = None
                             salvar_estado(estado)
                         else:
-                            log(f"ERRO NA VENDA: {resp.get('msg', 'desconhecido')}")
+                            log(f"ERRO VENDA: {resp.get('msg', 'desconhecido')}")
 
             # ---------- COMPRA ----------
-            elif resultado["sinal"] == "buy" and not posicao and preco and saldo > 2:
-                valor_usdt = max(2.0, round(saldo * 0.9, 2))
-                if valor_usdt > saldo - 0.5:
-                    valor_usdt = round(saldo - 0.5, 2)
-                log(f"Tentando comprar ~{valor_usdt} USDT de BTC")
-
-                if MODO_SIMULACAO:
-                    log(f"[SIMULAÇÃO] COMPRA | {valor_usdt} USDT")
-                    estado["posicao"] = {"preco": preco, "tamanho_usdt": valor_usdt, "preco_maximo": preco}
-                    salvar_estado(estado)
+            elif resultado["sinal"] == "buy" and not tem_posicao and preco and saldo > 2.5:
+                valor_usdt = round(min(saldo * 0.85, saldo - 0.5), 2)
+                if valor_usdt < 1.5:
+                    log("Saldo insuficiente para ordem mínima")
                 else:
-                    resp = client.place_order(SYMBOL, "buy", valor_usdt)
-                    if resp.get("code") == "00000":
+                    log(f"Comprando ~{valor_usdt} USDT de BTC")
+                    if MODO_SIMULACAO:
+                        log(f"[SIMULAÇÃO] COMPRA | {valor_usdt} USDT")
                         estado["posicao"] = {"preco": preco, "tamanho_usdt": valor_usdt, "preco_maximo": preco}
                         salvar_estado(estado)
-                        log(f"COMPRA REAL EXECUTADA | {valor_usdt} USDT")
                     else:
-                        log(f"ERRO NA ORDEM: {resp.get('msg', 'desconhecido')}")
+                        resp = client.place_order(SYMBOL, "buy", valor_usdt)
+                        if resp.get("code") == "00000":
+                            estado["posicao"] = {"preco": preco, "tamanho_usdt": valor_usdt, "preco_maximo": preco}
+                            salvar_estado(estado)
+                            log(f"COMPRA OK | {valor_usdt} USDT")
+                        else:
+                            log(f"ERRO COMPRA: {resp.get('msg', 'desconhecido')}")
 
             time.sleep(INTERVALO_SEGUNDOS)
     except KeyboardInterrupt:

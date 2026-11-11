@@ -14,12 +14,6 @@ def log(msg):
     with open(LOG_ARQUIVO, "a", encoding="utf-8") as f:
         f.write(linha + "\n")
 
-def confirmar_ordem():
-    if not CONFIRMAR_PRIMEIRA_ORDEM:
-        return True
-    resp = input("\nDeseja realmente executar a primeira ordem? (s/n): ").strip().lower()
-    return resp == "s"
-
 def obter_candles(client, timeframe, limit=100):
     try:
         resp = client.get_candles(SYMBOL, timeframe, limit)
@@ -28,7 +22,6 @@ def obter_candles(client, timeframe, limit=100):
         data = resp.get("data", [])
         if not data:
             return None
-        # Bitget retorna 8 colunas
         df = pd.DataFrame(data, columns=["ts", "open", "high", "low", "close", "volume", "quote_volume", "extra"])
         df = df.astype({"open": float, "high": float, "low": float, "close": float, "volume": float})
         return df.iloc[::-1].reset_index(drop=True)
@@ -67,7 +60,6 @@ def loop():
     client = BitgetClient(API_KEY, SECRET_KEY, PASSPHRASE)
     estado = carregar_estado()
     estado = iniciar_dia(estado, saldo)
-    primeira_ordem = True
 
     log("Iniciando análise... (Ctrl+C para parar)")
 
@@ -114,26 +106,24 @@ def loop():
             else:
                 log(">>> Sem sinal forte")
 
+            # Executa compra
             if resultado["sinal"] == "buy" and not estado.get("posicao") and preco:
-                if primeira_ordem and CONFIRMAR_PRIMEIRA_ORDEM and not MODO_SIMULACAO:
-                    if not confirmar_ordem():
-                        log("Primeira ordem cancelada")
-                        primeira_ordem = False
-                        time.sleep(INTERVALO_SEGUNDOS)
-                        continue
-                    primeira_ordem = False
-
-                tamanho = round(max(0.0001, (saldo * RISCO_PERCENTUAL / 100) / preco), 4)
+                tamanho = round(max(0.0001, (saldo * RISCO_PERCENTUAL / 100) / preco), 6)
+                log(f"Tentando comprar {tamanho} BTC @ {preco}")
 
                 if MODO_SIMULACAO:
                     log(f"[SIMULAÇÃO] COMPRA | {tamanho} BTC @ {preco}")
                     estado["posicao"] = {"preco": preco, "tamanho": tamanho}
                     salvar_estado(estado)
                 else:
-                    if client.place_order(SYMBOL, "buy", tamanho).get("code") == "00000":
+                    resp = client.place_order(SYMBOL, "buy", tamanho)
+                    log(f"Resposta da API: {resp}")
+                    if resp.get("code") == "00000":
                         estado["posicao"] = {"preco": preco, "tamanho": tamanho}
                         salvar_estado(estado)
-                        log(f"COMPRA REAL @ {preco}")
+                        log(f"COMPRA REAL EXECUTADA @ {preco}")
+                    else:
+                        log(f"ERRO NA ORDEM: {resp.get('msg', 'desconhecido')}")
 
             time.sleep(INTERVALO_SEGUNDOS)
     except KeyboardInterrupt:

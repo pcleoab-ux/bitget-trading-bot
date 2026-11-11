@@ -1,5 +1,5 @@
 """
-Dashboard do Bot Bitget com controles.
+Dashboard do Bot Bitget com controles manuais.
 Rode: python interface.py
 Abra: http://localhost:5000
 """
@@ -18,62 +18,62 @@ HTML = """
 <head>
     <title>Dashboard Bot Bitget</title>
     <meta charset="utf-8">
-    <meta http-equiv="refresh" content="20">
+    <meta http-equiv="refresh" content="30">
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #0d1117; color: #c9d1d9; margin: 0; padding: 20px; }
         h1 { color: #58a6ff; margin-bottom: 5px; }
         .subtitle { color: #8b949e; margin-bottom: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; }
         .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
         .card h2 { margin: 0 0 12px 0; font-size: 13px; color: #8b949e; text-transform: uppercase; }
-        .big { font-size: 26px; font-weight: bold; }
+        .big { font-size: 24px; font-weight: bold; }
         .green { color: #3fb950; }
         .red { color: #f85149; }
         .blue { color: #58a6ff; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { padding: 8px; text-align: left; border-bottom: 1px solid #21262d; }
         th { color: #8b949e; }
-        .btn { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 10px 16px; cursor: pointer; border-radius: 6px; margin: 4px; font-size: 14px; }
+        .btn { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; padding: 10px 14px; cursor: pointer; border-radius: 6px; margin: 4px; font-size: 13px; }
         .btn:hover { background: #30363d; }
         .btn-red { background: #da3633; border-color: #da3633; color: white; }
         .btn-red:hover { background: #b62324; }
         .btn-green { background: #238636; border-color: #238636; color: white; }
         .btn-green:hover { background: #2ea043; }
-        .signal { font-size: 22px; font-weight: bold; padding: 12px; border-radius: 6px; text-align: center; }
+        .signal { font-size: 20px; font-weight: bold; padding: 10px; border-radius: 6px; text-align: center; }
         .signal-buy { background: #238636; color: white; }
         .signal-sell { background: #da3633; color: white; }
         .signal-none { background: #21262d; color: #8b949e; }
-        .log { background: #0d1117; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; max-height: 180px; overflow-y: auto; }
-        .acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+        .log { background: #0d1117; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; max-height: 150px; overflow-y: auto; }
+        .acoes { display: flex; flex-wrap: wrap; gap: 6px; }
+        input[type=number] { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px; border-radius: 4px; width: 80px; }
     </style>
 </head>
 <body>
     <h1>Dashboard Bot Bitget</h1>
-    <p class="subtitle">BTCUSDT Spot | Atualiza a cada 20s</p>
+    <p class="subtitle">BTCUSDT Spot</p>
 
     <div class="grid">
         <div class="card">
             <h2>Saldo</h2>
             <p class="big">{{ saldo_usdt }} <span style="font-size:14px">USDT</span></p>
             <p>{{ saldo_btc }} BTC</p>
-            <p style="color:#8b949e">Valor total: ~${{ valor_total }}</p>
+            <p style="color:#8b949e">Total: ~${{ valor_total }}</p>
         </div>
         <div class="card">
-            <h2>Preço BTC</h2>
+            <h2>Preço</h2>
             <p class="big blue">${{ preco }}</p>
-            <p>Suporte: {{ suporte }}</p>
-            <p>Resistência: {{ resistencia }}</p>
+            <p>Sup: {{ suporte }}</p>
+            <p>Res: {{ resistencia }}</p>
         </div>
         <div class="card">
             <h2>Análise</h2>
             <p>Tendência: <strong class="{{ 'green' if tendencia == 'alta' else 'red' if tendencia == 'baixa' else '' }}">{{ tendencia.upper() }}</strong></p>
             <p>ADX: {{ adx }} | ATR: {{ atr }}%</p>
-            <p>Score C: <span class="green">{{ score_c }}</span> | V: <span class="red">{{ score_v }}</span> | Mín: {{ score_min }}</p>
-            <p>TFs: {{ tfs_c }} compra | {{ tfs_v }} venda</p>
+            <p>Score: <span class="green">{{ score_c }}</span> / <span class="red">{{ score_v }}</span> (mín {{ score_min }})</p>
         </div>
         <div class="card">
-            <h2>Sinal Atual</h2>
+            <h2>Sinal</h2>
             <div class="signal {{ 'signal-buy' if sinal == 'buy' else 'signal-sell' if sinal == 'sell' else 'signal-none' }}">
                 {{ sinal.upper() if sinal else 'SEM SINAL' }}
             </div>
@@ -81,20 +81,14 @@ HTML = """
     </div>
 
     <div class="card" style="margin-top:15px">
-        <h2>Ações</h2>
+        <h2>Controles Manuais</h2>
         <div class="acoes">
-            {% if pode_comprar %}
-            <button class="btn btn-green" onclick="comprar()">Comprar BTC agora</button>
-            {% endif %}
-            {% if pode_vender %}
+            <button class="btn btn-green" onclick="comprarManual()">Comprar BTC</button>
             <button class="btn btn-red" onclick="venderTudo()">Vender todo BTC</button>
-            {% endif %}
             <button class="btn" onclick="location.reload()">Atualizar</button>
         </div>
         <p style="color:#8b949e; font-size:12px; margin-top:10px">
-            {% if sinal == 'buy' %}Sinal de compra ativo.{% endif %}
-            {% if sinal == 'sell' %}Sinal de venda ativo.{% endif %}
-            {% if not sinal %}Aguardando sinal forte.{% endif %}
+            Compra usa ~85% do USDT. Venda converte todo BTC em USDT.
         </p>
     </div>
 
@@ -105,12 +99,12 @@ HTML = """
             <tr><th>ID</th><th>Lado</th><th>Tipo</th><th>Preço</th><th>Qtd</th><th></th></tr>
             {% for o in ordens %}
             <tr>
-                <td>{{ o.orderId[:10] }}...</td>
+                <td>{{ o.orderId[:8] }}...</td>
                 <td class="{{ 'green' if o.side == 'buy' else 'red' }}">{{ o.side.upper() }}</td>
                 <td>{{ o.orderType }}</td>
                 <td>{{ o.price }}</td>
                 <td>{{ o.size }}</td>
-                <td><button class="btn btn-red" onclick="cancelar('{{ o.orderId }}')">X</button></td>
+                <td><button class="btn btn-red" onclick="cancelar('{{ o.orderId }}')">Cancelar</button></td>
             </tr>
             {% endfor %}
         </table>
@@ -120,13 +114,15 @@ HTML = """
     </div>
 
     <div class="card" style="margin-top:15px">
-        <h2>Log do Bot</h2>
+        <h2>Log</h2>
         <div class="log">
             {% for linha in log_linhas %}
             {{ linha }}<br>
             {% endfor %}
         </div>
-        <p style="color:#8b949e; font-size:11px; margin-top:8px">Para o bot operar sozinho, rode <code>python bot.py</code> em outro terminal.</p>
+        <p style="color:#8b949e; font-size:11px; margin-top:8px">
+            Para operação automática, abra outro terminal e rode: <code>python bot.py</code>
+        </p>
     </div>
 
     <script>
@@ -134,10 +130,20 @@ HTML = """
             if (confirm('Cancelar ordem?')) fetch('/cancelar?id=' + id).then(() => location.reload());
         }
         function venderTudo() {
-            if (confirm('Vender todo o BTC agora?')) fetch('/vender_tudo').then(() => location.reload());
+            if (confirm('Vender TODO o BTC e converter para USDT?')) {
+                fetch('/vender_tudo').then(r => r.json()).then(d => {
+                    alert(d.msg || 'Feito');
+                    location.reload();
+                });
+            }
         }
-        function comprar() {
-            if (confirm('Comprar BTC agora?')) fetch('/comprar').then(() => location.reload());
+        function comprarManual() {
+            if (confirm('Comprar BTC com ~85% do saldo USDT?')) {
+                fetch('/comprar').then(r => r.json()).then(d => {
+                    alert(d.msg || 'Feito');
+                    location.reload();
+                });
+            }
         }
     </script>
 </body>
@@ -162,9 +168,9 @@ def ler_log():
     try:
         with open(LOG_ARQUIVO, "r", encoding="utf-8") as f:
             linhas = f.readlines()
-        return [l.strip() for l in linhas[-12:]]
+        return [l.strip() for l in linhas[-10:]]
     except:
-        return ["Nenhum log ainda."]
+        return ["Nenhum log."]
 
 @app.route("/")
 def index():
@@ -179,8 +185,6 @@ def index():
     score_v = 0
     score_min = 5
     sinal = None
-    tfs_c = 0
-    tfs_v = 0
     suporte = 0
     resistencia = 0
 
@@ -219,16 +223,12 @@ def index():
             score_v = resultado.get("score_venda", 0)
             score_min = resultado.get("score_minimo", 5)
             sinal = resultado.get("sinal")
-            tfs_c = resultado.get("timeframes_compra", 0)
-            tfs_v = resultado.get("timeframes_venda", 0)
             suporte = resultado.get("suporte", 0)
             resistencia = resultado.get("resistencia", 0)
     except Exception as e:
         print(f"Erro: {e}")
 
     valor_total = saldo_usdt + (saldo_btc * preco if preco else 0)
-    pode_comprar = sinal == "buy" and saldo_usdt > 2
-    pode_vender = saldo_btc > 0.00001
 
     return render_template_string(
         HTML,
@@ -244,13 +244,9 @@ def index():
         score_v=score_v,
         score_min=score_min,
         sinal=sinal,
-        tfs_c=tfs_c,
-        tfs_v=tfs_v,
         suporte=suporte,
         resistencia=resistencia,
-        log_linhas=ler_log(),
-        pode_comprar=pode_comprar,
-        pode_vender=pode_vender
+        log_linhas=ler_log()
     )
 
 @app.route("/cancelar")
@@ -258,7 +254,7 @@ def cancelar():
     order_id = request.args.get("id")
     if order_id:
         client.request("POST", "/api/v2/spot/trade/cancel-order", body={"symbol": SYMBOL, "orderId": order_id})
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "msg": "Ordem cancelada"})
 
 @app.route("/vender_tudo")
 def vender_tudo():
@@ -269,11 +265,15 @@ def vender_tudo():
             for asset in resp.get("data", []):
                 if asset.get("coin") == "BTC":
                     saldo_btc = float(asset.get("available", 0))
-        if saldo_btc > 0.00001:
-            client.place_order(SYMBOL, "sell", round(saldo_btc * 0.998, 6))
-    except:
-        pass
-    return jsonify({"ok": True})
+        if saldo_btc > 0.000001:
+            r = client.place_order(SYMBOL, "sell", round(saldo_btc * 0.998, 6))
+            if r.get("code") == "00000":
+                return jsonify({"ok": True, "msg": "BTC vendido"})
+            else:
+                return jsonify({"ok": False, "msg": r.get("msg", "Erro")})
+        return jsonify({"ok": False, "msg": "Sem BTC para vender"})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)})
 
 @app.route("/comprar")
 def comprar():
@@ -285,11 +285,15 @@ def comprar():
                 if asset.get("coin") == "USDT":
                     saldo_usdt = float(asset.get("available", 0))
         valor = round(min(saldo_usdt * 0.85, saldo_usdt - 0.5), 2)
-        if valor > 1.5:
-            client.place_order(SYMBOL, "buy", valor)
-    except:
-        pass
-    return jsonify({"ok": True})
+        if valor > 1.0:
+            r = client.place_order(SYMBOL, "buy", valor)
+            if r.get("code") == "00000":
+                return jsonify({"ok": True, "msg": f"Comprou {valor} USDT de BTC"})
+            else:
+                return jsonify({"ok": False, "msg": r.get("msg", "Erro")})
+        return jsonify({"ok": False, "msg": "Saldo USDT insuficiente"})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)})
 
 if __name__ == "__main__":
     print("Dashboard: http://localhost:5000")

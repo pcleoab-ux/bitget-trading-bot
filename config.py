@@ -10,13 +10,13 @@ SECRET_KEY = os.getenv("SECRET_KEY", "")
 PASSPHRASE = os.getenv("PASSPHRASE", "")
 
 # Modo
-MODO_DEMO = True               # True = usa conta Demo da Bitget
-MODO_SIMULACAO = False         # True = não envia ordem | False = envia ordem
-CONFIRMAR_PRIMEIRA_ORDEM = False
+MODO_SIMULACAO = False
+CONFIRMAR_PRIMEIRA_ORDEM = True
 
 # Operação
 SYMBOL = "BTCUSDT"
-TIMEFRAMES = ["15m", "1H", "4H"]
+# Formato correto da Bitget Spot
+TIMEFRAMES = ["15min", "1h", "4h"]
 
 # Risco
 USAR_RISCO_PERCENTUAL = True

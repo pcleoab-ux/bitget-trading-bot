@@ -128,7 +128,7 @@ def analisar_multi_timeframe(dados_por_tf):
     elif score_total_venda >= 3 and tfs_venda >= 2:
         sinal = "sell"
 
-    principal = resultados.get("15m", {})
+    principal = resultados.get("15min", resultados.get("15m", {}))
 
     return {
         "sinal": sinal,

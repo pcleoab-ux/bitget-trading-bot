@@ -2,7 +2,7 @@ import time
 import pandas as pd
 from datetime import datetime
 from bitget_client import BitgetClient
-from analise import analisar_multi_timeframe
+from analise import analisar_multi_timeframe, obter_tendencia_maior
 from risco import *
 from conexao import testar_conexao, obter_saldo
 from relatorio import gerar_relatorio
@@ -74,7 +74,6 @@ def loop():
     estado = iniciar_dia(estado, saldo)
 
     log("Iniciando análise... (Ctrl+C para parar)")
-    log("Critérios: Score >= 5 | 2+ timeframes | ADX >= 20")
 
     try:
         while True:
@@ -96,25 +95,30 @@ def loop():
                 time.sleep(INTERVALO_SEGUNDOS)
                 continue
 
+            # Busca dados dos timeframes operacionais + 4H e 1D para tendência
             dados = {}
             for tf in TIMEFRAMES:
                 df = obter_candles(client, tf)
                 if df is not None:
                     dados[tf] = df
 
+            df_4h = obter_candles(client, "4h", 100)
+            df_1d = obter_candles(client, "1day", 100)
+            tendencia = obter_tendencia_maior(df_4h, df_1d)
+
             if len(dados) < 2:
                 log("Aguardando dados suficientes...")
                 time.sleep(INTERVALO_SEGUNDOS)
                 continue
 
-            resultado = analisar_multi_timeframe(dados)
+            resultado = analisar_multi_timeframe(dados, tendencia)
             preco = obter_preco(client)
             saldo_btc = obter_saldo_btc(client)
 
             log("-" * 40)
             log(f"Saldo: {saldo:.2f} USDT | BTC: {saldo_btc:.6f} | Preço: {preco:.2f}")
-            log(f"Suporte: {resultado.get('suporte')} | Resistência: {resultado.get('resistencia')} | ADX: {resultado.get('adx', 0)}")
-            log(f"Score Compra: {resultado['score_compra']} | Score Venda: {resultado['score_venda']}")
+            log(f"Tendência maior: {tendencia.upper()} | ADX: {resultado.get('adx', 0)} | ATR: {resultado.get('atr_pct', 0)}%")
+            log(f"Score Compra: {resultado['score_compra']} | Score Venda: {resultado['score_venda']} | Mínimo: {resultado.get('score_minimo', 5)}")
             log(f"Timeframes → Compra: {resultado['timeframes_compra']} | Venda: {resultado['timeframes_venda']}")
             if resultado["sinal"]:
                 log(f">>> SINAL: {resultado['sinal'].upper()}")
@@ -128,7 +132,6 @@ def loop():
                 preco_entrada = posicao.get("preco", preco)
                 preco_maximo = posicao.get("preco_maximo", preco_entrada)
 
-                # Atualiza preço máximo (para trailing)
                 if preco > preco_maximo:
                     preco_maximo = preco
                     posicao["preco_maximo"] = preco_maximo

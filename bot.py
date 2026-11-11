@@ -98,7 +98,8 @@ def loop():
             preco = obter_preco(client)
 
             log("-" * 40)
-            log(f"Preço: {resultado.get('preco', 0):.2f} | Suporte: {resultado.get('suporte')} | Resistência: {resultado.get('resistencia')}")
+            log(f"Saldo: {saldo:.2f} USDT | Preço: {resultado.get('preco', 0):.2f}")
+            log(f"Suporte: {resultado.get('suporte')} | Resistência: {resultado.get('resistencia')}")
             log(f"Score Compra: {resultado['score_compra']} | Score Venda: {resultado['score_venda']}")
             log(f"Timeframes → Compra: {resultado['timeframes_compra']} | Venda: {resultado['timeframes_venda']}")
             if resultado["sinal"]:
@@ -106,10 +107,10 @@ def loop():
             else:
                 log(">>> Sem sinal forte")
 
-            # Compra - usa 90% do saldo disponível ou mínimo de 2 USDT
+            # Compra - usa 90% do saldo disponível
             if resultado["sinal"] == "buy" and not estado.get("posicao") and preco:
                 valor_usdt = max(2.0, round(saldo * 0.9, 2))
-                if valor_usdt > saldo:
+                if valor_usdt > saldo - 0.5:
                     valor_usdt = round(saldo - 0.5, 2)
                 log(f"Tentando comprar ~{valor_usdt} USDT de BTC")
 

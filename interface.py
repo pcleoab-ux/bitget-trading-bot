@@ -46,7 +46,6 @@ HTML = """
         .signal-none { background: #21262d; color: #8b949e; }
         .log { background: #0d1117; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; max-height: 150px; overflow-y: auto; }
         .acoes { display: flex; flex-wrap: wrap; gap: 6px; }
-        input[type=number] { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px; border-radius: 4px; width: 80px; }
     </style>
 </head>
 <body>
@@ -81,15 +80,12 @@ HTML = """
     </div>
 
     <div class="card" style="margin-top:15px">
-        <h2>Controles Manuais</h2>
+        <h2>Controles</h2>
         <div class="acoes">
             <button class="btn btn-green" onclick="comprarManual()">Comprar BTC</button>
             <button class="btn btn-red" onclick="venderTudo()">Vender todo BTC</button>
             <button class="btn" onclick="location.reload()">Atualizar</button>
         </div>
-        <p style="color:#8b949e; font-size:12px; margin-top:10px">
-            Compra usa ~85% do USDT. Venda converte todo BTC em USDT.
-        </p>
     </div>
 
     <div class="card" style="margin-top:15px">
@@ -120,27 +116,24 @@ HTML = """
             {{ linha }}<br>
             {% endfor %}
         </div>
-        <p style="color:#8b949e; font-size:11px; margin-top:8px">
-            Para operação automática, abra outro terminal e rode: <code>python bot.py</code>
-        </p>
     </div>
 
     <script>
         function cancelar(id) {
-            if (confirm('Cancelar ordem?')) fetch('/cancelar?id=' + id).then(() => location.reload());
+            if (confirm('Cancelar?')) fetch('/cancelar?id=' + id).then(() => location.reload());
         }
         function venderTudo() {
-            if (confirm('Vender TODO o BTC e converter para USDT?')) {
+            if (confirm('Vender todo o BTC?')) {
                 fetch('/vender_tudo').then(r => r.json()).then(d => {
-                    alert(d.msg || 'Feito');
+                    alert(d.msg);
                     location.reload();
                 });
             }
         }
         function comprarManual() {
-            if (confirm('Comprar BTC com ~85% do saldo USDT?')) {
+            if (confirm('Comprar BTC com 85% do USDT?')) {
                 fetch('/comprar').then(r => r.json()).then(d => {
-                    alert(d.msg || 'Feito');
+                    alert(d.msg);
                     location.reload();
                 });
             }
@@ -168,14 +161,31 @@ def ler_log():
     try:
         with open(LOG_ARQUIVO, "r", encoding="utf-8") as f:
             linhas = f.readlines()
-        return [l.strip() for l in linhas[-10:]]
+        return [l.strip() for l in linhas[-8:]]
     except:
         return ["Nenhum log."]
 
+def get_saldos():
+    """Retorna (usdt, btc) disponíveis."""
+    usdt = 0.0
+    btc = 0.0
+    try:
+        resp = client.get_account()
+        if resp.get("code") == "00000":
+            for asset in resp.get("data", []):
+                coin = asset.get("coin", "")
+                available = float(asset.get("available", 0))
+                if coin == "USDT":
+                    usdt = available
+                elif coin == "BTC":
+                    btc = available
+    except:
+        pass
+    return usdt, btc
+
 @app.route("/")
 def index():
-    saldo_usdt = 0.0
-    saldo_btc = 0.0
+    saldo_usdt, saldo_btc = get_saldos()
     preco = 0.0
     ordens = []
     tendencia = "neutro"
@@ -189,14 +199,6 @@ def index():
     resistencia = 0
 
     try:
-        resp = client.get_account()
-        if resp.get("code") == "00000":
-            for asset in resp.get("data", []):
-                if asset.get("coin") == "USDT":
-                    saldo_usdt = float(asset.get("available", 0))
-                elif asset.get("coin") == "BTC":
-                    saldo_btc = float(asset.get("available", 0))
-
         ticker = client.get_ticker(SYMBOL)
         if ticker.get("code") == "00000":
             preco = float(ticker.get("data", [{}])[0].get("lastPr", 0))
@@ -233,7 +235,7 @@ def index():
     return render_template_string(
         HTML,
         saldo_usdt=f"{saldo_usdt:.2f}",
-        saldo_btc=f"{saldo_btc:.6f}",
+        saldo_btc=f"{saldo_btc:.8f}",
         preco=f"{preco:,.2f}",
         valor_total=f"{valor_total:.2f}",
         ordens=ordens,
@@ -254,44 +256,39 @@ def cancelar():
     order_id = request.args.get("id")
     if order_id:
         client.request("POST", "/api/v2/spot/trade/cancel-order", body={"symbol": SYMBOL, "orderId": order_id})
-    return jsonify({"ok": True, "msg": "Ordem cancelada"})
+    return jsonify({"ok": True, "msg": "Cancelado"})
 
 @app.route("/vender_tudo")
 def vender_tudo():
     try:
-        resp = client.get_account()
-        saldo_btc = 0
-        if resp.get("code") == "00000":
-            for asset in resp.get("data", []):
-                if asset.get("coin") == "BTC":
-                    saldo_btc = float(asset.get("available", 0))
-        if saldo_btc > 0.000001:
-            r = client.place_order(SYMBOL, "sell", round(saldo_btc * 0.998, 6))
+        _, saldo_btc = get_saldos()
+        print(f"Saldo BTC detectado: {saldo_btc}")
+        if saldo_btc >= 0.0001:
+            tamanho = round(saldo_btc * 0.995, 6)
+            r = client.place_order(SYMBOL, "sell", tamanho)
+            print(f"Resposta venda: {r}")
             if r.get("code") == "00000":
-                return jsonify({"ok": True, "msg": "BTC vendido"})
+                return jsonify({"ok": True, "msg": f"Vendeu {tamanho} BTC"})
             else:
-                return jsonify({"ok": False, "msg": r.get("msg", "Erro")})
-        return jsonify({"ok": False, "msg": "Sem BTC para vender"})
+                return jsonify({"ok": False, "msg": r.get("msg", "Erro na venda")})
+        elif saldo_btc > 0:
+            return jsonify({"ok": False, "msg": f"BTC muito baixo ({saldo_btc}). Mínimo ~0.0001"})
+        return jsonify({"ok": False, "msg": "Sem BTC disponível"})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
 
 @app.route("/comprar")
 def comprar():
     try:
-        resp = client.get_account()
-        saldo_usdt = 0
-        if resp.get("code") == "00000":
-            for asset in resp.get("data", []):
-                if asset.get("coin") == "USDT":
-                    saldo_usdt = float(asset.get("available", 0))
+        saldo_usdt, _ = get_saldos()
         valor = round(min(saldo_usdt * 0.85, saldo_usdt - 0.5), 2)
         if valor > 1.0:
             r = client.place_order(SYMBOL, "buy", valor)
             if r.get("code") == "00000":
-                return jsonify({"ok": True, "msg": f"Comprou {valor} USDT de BTC"})
+                return jsonify({"ok": True, "msg": f"Comprou {valor} USDT"})
             else:
                 return jsonify({"ok": False, "msg": r.get("msg", "Erro")})
-        return jsonify({"ok": False, "msg": "Saldo USDT insuficiente"})
+        return jsonify({"ok": False, "msg": "USDT insuficiente"})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
 

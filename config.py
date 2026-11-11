@@ -19,10 +19,10 @@ TIMEFRAMES = ["15min", "1h", "4h"]
 
 # Risco
 USAR_RISCO_PERCENTUAL = True
-RISCO_PERCENTUAL = 10.0          # Aumentado para garantir ordem mínima
+RISCO_PERCENTUAL = 10.0
 LOTE_FIXO = 0.001
-SALDO_MINIMO_USDT = 5.0          # Reduzido
-ORDEM_MINIMA_USDT = 1.0          # Mínimo da Bitget
+SALDO_MINIMO_USDT = 5.0
+ORDEM_MINIMA_USDT = 1.0
 
 # Gestão de risco
 LIMITE_PERDA_DIARIA_PERCENT = 3.0

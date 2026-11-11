@@ -63,7 +63,7 @@ def loop():
         log(f"Saldo abaixo do mínimo ({SALDO_MINIMO_USDT} USDT). Bot não iniciará.")
         return
 
-    client = BitgetClient(API_KEY, SECRET_KEY, PASSPHRASE, demo=False)
+    client = BitgetClient(API_KEY, SECRET_KEY, PASSPHRASE)
     estado = carregar_estado()
     estado = iniciar_dia(estado, saldo)
     primeira_ordem = True
@@ -104,7 +104,6 @@ def loop():
             resultado = analisar_multi_timeframe(dados)
             preco = obter_preco(client)
 
-            # Mostra análise
             log("-" * 40)
             log(f"Preço: {resultado.get('preco', 0):.2f} | Suporte: {resultado.get('suporte')} | Resistência: {resultado.get('resistencia')}")
             log(f"Score Compra: {resultado['score_compra']} | Score Venda: {resultado['score_venda']}")
